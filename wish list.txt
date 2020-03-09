@@ -1,0 +1,18 @@
+What do you want the RaBIDS program to do in future?
+
+v0.1
+
+Chris Paret, 2020/03/01
+
+Import and Preprocessing: Voxel displacement maps not implemented, yet
+
+Preprocessing: 
+- Anatomical normalization is done for each scan separately - even if two functional scans were recorded in the same session. This could become more efficient.
+- Parameters are currently set to standard PSM sequence (36 slices, 2s TR). This could become more flexible in future
+- Smoothing is set to 8mm, might become more flexible
+
+Firstlevel: Analysis of multiple runs with same conditions is currently not implemented
+
+Others:
+- test compatibility with fmriPrep and fmriQC
+- add tool to fill the dataset_description.json with study information
