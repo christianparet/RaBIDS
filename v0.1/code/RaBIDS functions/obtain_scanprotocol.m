@@ -7,16 +7,16 @@ function [out,scanprotocol] = obtain_scanprotocol(HowExpectDicoms,dicomdir,subje
 
 %% Comment out if in use
 % clear
-% HowExpectDicoms = 'BIDS';
-% dicomdir = 'S:\AG-Austausch\RaBIDS\example\data exchange server\RABIDS-example\dicomdir';
-% subject = 'RaBIDS01';
+% HowExpectDicoms = 'allinone';
+% dicomdir = 'dicomdir';
+% subject = 'EFP09';
 % suff = '';
-% ses_id = 'ses-01';
-% study_identifier = 'PSM_BI-STUDIE';
-% data_analysis_path = 'S:\AG-Austausch\RaBIDS\example\your project directory';
+% ses_id = 'ses-pre';
+% study_identifier = '_';
+% data_analysis_path = 'S:\AG_Selfregulation\Projects\EFPTest\Data_analysis';
 % max_series = 10;
 % write = 'yes';
-
+% 
 %% Read data and find volumes of your scan series
 
 if strcmp(HowExpectDicoms,'allinone')
@@ -28,17 +28,18 @@ elseif strcmp(HowExpectDicoms,'BIDS')
         dicomd = [dicomdir,filesep,subject,filesep,ses_id];
     end
 else
-    out{k} = 'User input to object type ''dicom'' not allowed. Must be either ''BIDS'' or ''allinone''.\nProgram stops.\n';
+    out{1} = 'User input to object type ''dicom'' not allowed. Must be either ''BIDS'' or ''allinone''.\nProgram stops.\n';
     return
 end
 
 k=1;
+scanprotocol.name = {'no scan found'};
 
 all_files=dir(strcat(dicomd,filesep,subject,suff,'.MR*.IMA'));
 disp('Reading data...');
 
 if isempty(all_files)
-    out{k} = 'No data found for this session\n\n';   
+    out{k,1} = 'No data found for this session\n\n';   
     return
 end
 
@@ -54,7 +55,7 @@ for i=1:length(ind_files)
     try
         hdr = dicominfo(fullfile(dicomd,ind_files{i}(1).name));
         if ~strcmp(hdr.PatientID,subject)
-            out{k} = ['Meta-data ID ''',hdr.PatientID,' differs from ID assigned in datasheet ''',subject,'.\n'];
+            out{k,1} = ['Meta-data ID ''',hdr.PatientID,''' differs from ID assigned in datasheet ''',subject,'''.\nIf this is unexpected you should check whether the volumes are correctly assigned to this subject.\n'];
             k=k+1;
         end
         names(i,1) = {hdr.ProtocolName};
@@ -66,11 +67,27 @@ end
 
 %% Save scan protocol to dicomdir
 
-series = series(1:length(vols));
-name = names(1:length(vols));
-scanprotocol = table(series,name,vols);
-if strcmp(write,'yes')
-    writetable(scanprotocol,fullfile(dicomd,['scanprotocol_',subject,suff]),'Delimiter','tab')
-end
+try
+    series = series(1:length(vols));
+    name = names(1:length(vols));
+    scanprotocol = table(series,name,vols);
+    if strcmp(write,'yes')
+        writetable(scanprotocol,fullfile(dicomd,['scanprotocol_',subject,suff]),'Delimiter','tab')
+    end
 
-out{k} = 'scan protocol ready\n\n';
+    out{k,1} = 'Scan protocol saved to dicomdir.\n\n';
+    return
+    
+catch
+    out{k,1} = 'Not able to write scan protocol.\n';
+    k=k+1;
+    
+    try
+        scanprotocol = readtable(fullfile(dicomd,['scanprotocol_',subject,suff]));
+        out{k,1} = 'Found scan protocol in dicomdir, will use that one.\n\n ';
+        return
+    catch
+        out{k,1} = 'No scan protocol found in dicomdir.\nIf this is unexpected, follow steps below:\nIt is recommended to check user input in the datasheet of these object types: data exchange path, dicoms, series info, general suffix and session info.\n';
+        return
+    end
+end

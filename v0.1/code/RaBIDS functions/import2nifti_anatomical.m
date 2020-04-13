@@ -41,10 +41,11 @@ else
 end
 
 if isfolder([subject_dir,filesep,'anat'])
+    fprintf('Directory with functional images exists.\n')
     if strcmp(overwrite,'yes')
-        fprintf('Directory with anatomical images exists, overwrite files.\n');
+        fprintf('User permission given to overwrite.\n');
     else
-        out = 'Directory with anatomical images exists. Program stops\n\n';
+        fprintf('Permission to overwrite declined.\n');
         return
     end
 end
@@ -73,7 +74,9 @@ try
     end
 
     out='Dicom import successful!\n\n';
+    return
         
 catch
-    out = 'No such task or series, check label and min/max number of volumes.\n\n';
+    out = 'No such task or series.\nIf this is unexpected, follow steps below:\nIf program was not able to save scan protocol with current settings, it is recommended to check user input in the datasheet of these object types: data exchange path, dicoms, series info, general suffix and session info.\nIf scan protocol of this subject exists in dicomdir, go to datasheet and check the sobject type MRI series, minimum and maximum images, and object type series info.\nCompare user input with scan protocol of this subject, which you find in the dicomdir.\nIs MRI series ID (= name in scan protocol) and number of images (vols in scan protocol) appropriately defined?\n\n';
+    return
 end
