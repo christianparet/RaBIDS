@@ -118,14 +118,14 @@ for i = 1:length(subj_list)
         end
         
         if ~isfolder(subject_dir) || contains(overwrite,'y')
-            fprintf(['Processing session ID ',ses_id{j},'...\n']);
+            fprintf(['--------------- Session ID ',ses_id{j},'---------------\n\n']);
             
             [out,scanprotocol] = obtain_scanprotocol(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,data_analysis_path,max_series,WriteProt);
             [lines,~] = size(out);
             stop = false;
             for k = 1:lines
                 fprintf(out{k})
-                if contains(out{k},'Program stops\n')
+                if contains(out{k},'Program stops')
                     stop = true;
                     break
                 end
@@ -155,18 +155,17 @@ for i = 1:length(subj_list)
                 end
                 
                 if strcmp(valid_series,'false')
-                    fprintf(['No series with number of volumes between ',num2str(n_min),' and ',num2str(n_max),' found for this task\nProgram stops\n'])
-                    break
-                end
-                
-                if strcmp(task,'anat')
-                    out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,data_analysis_path,useseries,addsub,overwrite);
-                else          
-                    out = import2nifti_functional(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,first_image,data_analysis_path,useseries,task,addsub,overwrite);
-                end
-                fprintf(out)
-                if contains(out,'Program stops')
-                    break
+                    fprintf(['No series with number of volumes between ',num2str(n_min),' and ',num2str(n_max),' found for this task\n\n'])
+                else
+                    if strcmp(task,'anat')
+                        out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,data_analysis_path,useseries,addsub,overwrite);
+                    else          
+                        out = import2nifti_functional(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,first_image,data_analysis_path,useseries,task,addsub,overwrite);
+                    end
+                    fprintf(out)
+                    if contains(out,'Program stops\n\n')
+                        break
+                    end
                 end
             end
         else
