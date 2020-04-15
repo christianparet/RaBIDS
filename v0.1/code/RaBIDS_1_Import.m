@@ -39,7 +39,6 @@ switch HowExpectDicoms
     case 'allinone'
         dicomdir =  'dicomdir';
 end
-addpath(dicomdir);
 
 dum = find(contains(data.Properties.RowNames,'subject info'));
 for i = 1:length(dum)
