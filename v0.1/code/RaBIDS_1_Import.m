@@ -145,7 +145,7 @@ for i = 1:length(subj_list)
                 valid_series = 'false';
                 for l = 1:nr
                     if strcmp(scanprotocol.name{l},metadata)
-                        if scanprotocol.vols(l)>=n_min && scanprotocol.vols(l)<=n_max
+                        if (scanprotocol.vols(l)>=n_min && scanprotocol.vols(l)<=n_max) || (scanprotocol.vols(l)==n_min && isnan(n_max))
                             useseries = scanprotocol.series(l);
                             valid_series = 'true';
                             break
