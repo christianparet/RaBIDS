@@ -5,12 +5,12 @@ function out = create_sots(subject,task,data_analysis_path,ses_id,addsub,firstpu
 %% Comment out if function in use
 % clear
 % clc
-% condfile = 'S:\AG-Austausch\RaBIDS\example\your project directory\dataset\code\conditions_scenes.xlsx';
-% data_analysis_path = 'S:\AG-Austausch\RaBIDS\example\your project directory';
-% subject = 'RaBIDS01';
-% ses_id = 'ses-01';
+% condfile = 'S:\AG_Selfregulation\Projects\EFPTest\Data_analysis\dataset\code\conditions_efptest.xlsx';
+% data_analysis_path = 'S:\AG_Selfregulation\Projects\EFPTest\Data_analysis';
+% subject = 'EFP03';
+% ses_id = 'ses-pre';
 % addsub = 'y'; % add prefix 'sub-' before subject name
-% task = 'scenes';
+% task = 'efptest';
 % firstpulse = 5;
 % overwrite = 'y';
 %%
@@ -33,11 +33,26 @@ try
     
     condlines = find(contains(conddata.Properties.RowNames,'Condition'));
     
+    k=1;
+    
     for i = 1:length(condlines)
         allcond{i}.Name = conddata{condlines(i),Namecol}{:};
         allcond{i}.OnsetID = conddata{condlines(i),OnsetIDcol}{:};
         allcond{i}.Duration = conddata{condlines(i),Durationcol}{:};
-        allcond{i}.OffsetID = conddata{condlines(i),OffsetIDcol}{:};
+        
+        if isempty(allcond{i}.Duration) % if duration is not defined in conditions_TaskName.xlsx...
+            allcond{i}.OffsetID = conddata{condlines(i),OffsetIDcol}{:}; % ... use OffsetID
+            if isempty(allcond{i}.OffsetID)
+                out{k,:} = ['Duration and OffsetID not defined for condition ',allcond{i}.Name,'.\nProgram stops\n'];
+                return
+            else
+                allcond{i}.OffsetID = conddata{condlines(i),OffsetIDcol}{:};
+                allcond{i}.Duration = -1;
+                out{k,:} = ['Duration not defined for condition ',allcond{i}.Name,'. Use OffsetID.\n'];
+                k=k+1;
+            end
+        end
+        
         eval([allcond{i}.Name,'_onset = [];']); % create empty variable for each condition
         eval([allcond{i}.Name,'_dur = [];']);
     end
@@ -77,14 +92,14 @@ try
         elseif strcmp(LogFormat,'free')
             logfile = dir([logdir,filesep,LogID,'.log']);
         else
-            out{1} = 'User input to object type ''Logfile ID format'' in conditions_TaskName.xlsx is not valid. Select either ''BIDS'' or ''free''.\nProgram stops.\\n';
+            out{k} = 'User input to object type ''Logfile ID format'' in conditions_TaskName.xlsx is not valid.\nSelect either ''BIDS'' or ''free''.\nProgram stops.\\n';
             return
         end
         
         try
             [event_type,event_code,event_time]=textread([logfile.folder,filesep,logfile.name],'%*d %s %s %d %*s%*s%*s%*s%*s%*s%*s%*s%*s','headerlines',IgnoreHeaderLines);
         catch
-            out{1} = ['Cannot read logfile. Check logfile ID definitions in conditions_TasName.xlsx. Check logfile headerlines: data expected to start not before row ',num2str(IgnoreHeaderLines),'.\nContinue with next session.\n\n'];
+            out{k} = ['Cannot read logfile.\nCheck whether sourcedata path is named as explained in manual.\nCheck Log ID in conditions_TaskName.xlsx\nCheck logfile headerlines: data expected to start not before row ',num2str(IgnoreHeaderLines),'.\nContinue with next session.\n\n'];
             return
         end
         
@@ -127,8 +142,8 @@ try
                                     retain_offsetCondName = allcond{i}.Name; % ... then keep some information in memory to define duration dependent from offset ID
                                     retain_offsetID = allcond{i}.OffsetID;
                                     on_time = (event_time(k)-t0)/10000;
-                                    out{dum,:} = ['No duration defined for condition: ', allcond{i}.Name,'. OffsetID is used.\n'];
-                                    dum = dum + 1;
+%                                     out{dum,:} = ['No duration defined for condition: ', allcond{i}.Name,'. OffsetID is used.\n'];
+%                                     dum = dum + 1;
                                 else % Duration or offset ID must be defined, otherwise: force function to stop
                                     out{dum,:} = ['Duration and OffsetID definition missing for condition ', allcond{i}.Name,'.\nProgram stops.\n'];
                                     dum = dum + 1;
@@ -177,5 +192,5 @@ try
     end
     
 catch
-    out{dum,:} = 'An error ouccured. Program stops\n';
+    out{dum,:} = 'An error ouccured.\nIf you used OffsetID to define duration, you should check whether there is an OffsetID event following each OnsetID event in the Presentation logfile.\nIf this is not the case, use different OffsetID or define Duration.\nProgram stops\n';
 end
