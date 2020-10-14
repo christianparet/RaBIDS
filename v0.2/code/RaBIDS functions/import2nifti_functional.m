@@ -1,4 +1,4 @@
-function out = import2nifti_functional(HowExpectDicoms,dicomdir,subject,suff,ses_id,study_identifier,first_image,data_analysis_path,series,task,addsub,overwrite)
+function out = import2nifti_functional(HowExpectDicoms,dicomdir,subject,suff,ses_id,study_identifier,first_image,data_analysis_path,series,series_n,task,addsub,overwrite)
 % v0.2 release
 
 % Uses dicm2nii toolbox to import dicom-images to nifti-format
@@ -15,12 +15,15 @@ function out = import2nifti_functional(HowExpectDicoms,dicomdir,subject,suff,ses
 % study_identifier = 'PSM_BI-STUDIE';
 % data_analysis_path = 'E:\mytrainingdata\your project directory';
 % series = 6;
+% series_n = 'ep2d_TR2000_64_Scenes';
 % task = 'scenes';
 % addsub = 'yes';
 % overwrite = 'yes';
 %%
 
 data_dir =  'dataset';
+
+dum = 1;
 
 if strcmp(HowExpectDicoms,'allinone')
         dicomd = [data_analysis_path,filesep,dicomdir];
@@ -31,7 +34,7 @@ elseif strcmp(HowExpectDicoms,'BIDS')
         dicomd = [dicomdir,filesep,subject,filesep,ses_id];
     end
 else
-    out = 'User input to object type ''dicom'' not allowed. Must be either ''BIDS'' or ''allinone''.\nProgram stops.\n';
+    out{dum,:} = 'User input to object type ''dicom'' not allowed.\nError #7\nProgram stops.\n';
     return
 end
 
@@ -85,8 +88,7 @@ try
             try
                 delete([datastruct{i}.folder,filesep,datastruct{i}.name]);
             catch
-                fprintf(['Cannot delete ',datastruct{i}.name,', check rights\n'])
-                out = 'Program stops\n';
+                out{dum,:} = ['Cannot delete ',datastruct{i}.name,', check rights.\nProgram stops\n'];
                 return
             end
         end
@@ -100,7 +102,8 @@ try
     %% Rename to BIDS format
     
     fprintf('Rename to BIDS format\n');
-    nii_file = spm_select('FPList',[subject_dir,filesep,'func'],'^ep2d.*');
+       
+    nii_file = spm_select('FPList',[subject_dir,filesep,'func'],[series_n,'.*']);
     
     [nr_files,~] = size(nii_file); % there will be two files if option to produce .json file is activated via dicm2nii GUI
     
@@ -109,7 +112,7 @@ try
         movefile([subject_dir,filesep,'func',filesep,fn,fe],[subject_dir,filesep,'func',filesep,prefix,subject,write_ses,'task-',task,'_bold',fe]);
     end
     
-    out='Dicom import successful!\n\n';
+    out{dum,:} = 'Dicom import successful!\n\n';
     
     % Write task information to json file. This code could be extended in future with more task information provided in the datasheet table
     % Lior Kirsch (2020). Structure to JSON (https://www.mathworks.com/matlabcentral/fileexchange/50965-structure-to-json), MATLAB Central File Exchange. Retrieved February 27, 2020.
@@ -122,6 +125,6 @@ try
     end
     
 catch
-    out = 'No such task or series.\nIf this is unexpected, follow steps below:\nIf program was not able to save scan protocol with current settings, it is recommended to check user input in the datasheet of these object types: data exchange path, dicoms, series info, general suffix and session info.\nIf scan protocol of this subject exists in dicomdir, go to datasheet and check the sobject type MRI series, minimum and maximum images, and object type series info.\nCompare user input with scan protocol of this subject, which you find in the dicomdir.\nIs MRI series ID (= name in scan protocol) and number of images (vols in scan protocol) appropriately defined?\n\n';
+    out{dum,:} = 'Scans for this task were not found for this subject/session.\nError #8\n';
     return
 end

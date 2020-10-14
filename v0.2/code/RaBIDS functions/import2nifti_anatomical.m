@@ -1,4 +1,4 @@
-function out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subject,suff,ses_id,study_identifier,data_analysis_path,series,addsub,overwrite)
+function out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subject,suff,ses_id,study_identifier,data_analysis_path,series,series_n,addsub,overwrite)
 % v0.2 release
 
 % Uses dicm2nii toolbox to import dicom-images to nifti-format
@@ -14,13 +14,16 @@ function out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subject,suff,ses
 % ses_id = 'ses-01';
 % study_identifier = 'PSM_BI-STUDIE';
 % data_analysis_path = 'E:\mytrainingdata\your project directory';
-% series = 6;
-% task = 'scenes';
+% series = 2;
+% series_n = 't1_mpr_ns_sag_pat2_iso_asy';
+% task = 'mprage';
 % addsub = 'yes';
 % overwrite = 'yes';
 %%
 
 data_dir =  'dataset';
+
+dum = 1;
 
 if strcmp(HowExpectDicoms,'allinone')
         dicomd = [data_analysis_path,filesep,dicomdir];
@@ -31,7 +34,7 @@ elseif strcmp(HowExpectDicoms,'BIDS')
         dicomd = [dicomdir,filesep,subject,filesep,ses_id];
     end
 else
-    out = 'User input to object type ''dicom'' not allowed. Must be either ''BIDS'' or ''allinone''.\nProgram stops.\n';
+    out{dum,:} = 'User input to object type ''dicom'' not allowed.\nError #7\nProgram stops.\n';
     return
 end
 
@@ -68,14 +71,14 @@ try
     delete([subject_dir,filesep,'anat',filesep,'dcmHeaders.mat'])
 
     %% Deface anatomical image and rename to BIDS format
-    fprintf('Deface\n');
-    anat_nii = spm_select('FPList',[subject_dir,filesep,'anat'],'^t1_mpr.*.nii');
+    fprintf('Deface...');
+    anat_nii = spm_select('FPList',[subject_dir,filesep,'anat'],[series_n,'.nii']);
     matlabbatch{1}.spm.util.deface.images = {anat_nii};
     spm_jobman('run', matlabbatch);
     delete(anat_nii);
 
     fprintf('Rename to BIDS format\n');
-    nii_file = spm_select('FPList',[subject_dir,filesep,'anat'],'t1_mpr.*');
+    nii_file = spm_select('FPList',[subject_dir,filesep,'anat'],[series_n,'.*']);
 
     [nr_files,~] = size(nii_file); % there will be two files if option to produce .json file is activated via dicm2nii GUI
 
@@ -84,10 +87,10 @@ try
         movefile([subject_dir,filesep,'anat',filesep,fn,fe],[subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w',fe]);
     end
 
-    out='Dicom import successful!\n\n';
+    out{dum,:} = 'Dicom import successful!\n\n';
     return
         
 catch
-    out = 'No such task or series.\nIf this is unexpected, follow steps below:\nIf program was not able to save scan protocol with current settings, it is recommended to check user input in the datasheet of these object types: data exchange path, dicoms, series info, general suffix and session info.\nIf scan protocol of this subject exists in dicomdir, go to datasheet and check the sobject type MRI series, minimum and maximum images, and object type series info.\nCompare user input with scan protocol of this subject, which you find in the dicomdir.\nIs MRI series ID (= name in scan protocol) and number of images (vols in scan protocol) appropriately defined?\n\n';
+    out{dum,:} = 'Scans for this task were not found for subject/session.\nError #8\n';
     return
 end
