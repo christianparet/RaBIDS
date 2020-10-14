@@ -3,9 +3,12 @@
 
 % Change log from v0.1: 
 % - see obtain_scanprotocol; scan protocol saved to subject directory
-% - save command window output to subject directory
+% - save command window output to RaBIDS-logs directory
 % - new entries added to bidsignore-file to allow above output in BIDS validation
 % - Datasheet variable name naming convention changed
+% - Implemented fieldmap import
+% - Error reporting with reference to RaBIDS Error Reference-sheet
+% - Removed several bugs
 
 %% Import imaging data to BIDS format
 % Program automatically imports your MRI data to nifti and rearranges it according to the BIDS data format
@@ -94,6 +97,10 @@ overwrite = data{Overwriteline,userInputcol}{:};
 WriteProtline = find(strcmp(data.Properties.RowNames,'write scan protocol'));
 WriteProt = data{WriteProtline,userInputcol}{:};
 
+% Make directory to save RaBIDS logfiles
+logdir = [data_analysis_path,filesep,'RaBIDS-logs'];
+mkdir(logdir);
+
 %% Import data to BIDS structure
 
 % check for generic files and if not yet existant, copy-paste templates
@@ -122,11 +129,11 @@ for i = 1:length(subj_list)
             subject_dir = [data_analysis_path,filesep,data_dir,filesep,prefix,subj_list(i).name{1}];
             diaryname = [prefix,subj_list(i).name{1},'_',xs,'_RaBIDS-Import-log.txt'];
         else
-            sugbject_dir = [data_analysis_path,filesep,data_dir,filesep,prefix,subj_list(i).name{1},filesep,ses_id{j}];
+            subject_dir = [data_analysis_path,filesep,data_dir,filesep,prefix,subj_list(i).name{1},filesep,ses_id{j}];
             diaryname = [prefix,subj_list(i).name{1},'_',ses_id{j},'_',xs,'_RaBIDS-Import-log.txt'];
         end
         
-        diary(fullfile(subject_dir,diaryname));
+        diary(fullfile(logdir,diaryname));
         
         if ~isfolder(subject_dir) || contains(overwrite,'y')
             fprintf(['--------------- Session ID ',ses_id{j},'---------------\n\n']);
@@ -134,9 +141,9 @@ for i = 1:length(subj_list)
             [out,scanprotocol] = obtain_scanprotocol(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,data_analysis_path,max_series,addsub,WriteProt);
             [lines,~] = size(out);
             stop = false;
-            for k = 1:lines
-                fprintf(out{k})
-                if contains(out{k},'Program stops')
+            for nmessages = 1:lines
+                fprintf(out{nmessages})
+                if contains(out{nmessages},'Program stops')
                     stop = true;
                     break
                 end
@@ -166,15 +173,25 @@ for i = 1:length(subj_list)
                 end
                 
                 if strcmp(valid_series,'false')
-                    fprintf(['No series with number of volumes between ',num2str(n_min),' and ',num2str(n_max),' found for this task\n\n'])
+                    fprintf(['No series with number of volumes between ',num2str(n_min),' and ',num2str(n_max),' found for this task.\nError #8.\n\n'])
                 else
                     if strcmp(task,'anat')
-                        out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,data_analysis_path,useseries,addsub,overwrite);
+                        out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,data_analysis_path,useseries,scanprotocol.name{useseries},addsub,overwrite);
+                    elseif contains(task,'fieldmap')
+                        out = import2nifti_fieldmap(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,data_analysis_path,useseries,scanprotocol.name{useseries},addsub,overwrite);
                     else          
-                        out = import2nifti_functional(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,first_image,data_analysis_path,useseries,task,addsub,overwrite);
+                        out = import2nifti_functional(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,first_image,data_analysis_path,useseries,scanprotocol.name{useseries},task,addsub,overwrite);
                     end
-                    fprintf(out)
-                    if contains(out,'Program stops\n\n')
+                    [lines,~] = size(out);
+                    stop = false;
+                    for nmessages = 1:lines
+                        fprintf(out{nmessages})
+                        if contains(out{nmessages},'Program stops')
+                            stop = true;
+                            break
+                        end
+                    end
+                    if stop
                         break
                     end
                 end
