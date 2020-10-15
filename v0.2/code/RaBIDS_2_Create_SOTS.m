@@ -36,6 +36,9 @@ end
 DataAnalysisPathline = find(strcmp(data.Properties.RowNames,'data analysis path'));
 data_analysis_path = data{DataAnalysisPathline,userInputcol}{:};
 
+SourceDataPathline = find(strcmp(data.Properties.RowNames,'sourcedata path'));
+source_data_path = data{SourceDataPathline,userInputcol}{:};
+
 dum = find(contains(data.Properties.RowNames,'subject info'));
 for i = 1:length(dum)
     subj_list(i).name = data{dum(i),userInputcol};
@@ -88,7 +91,7 @@ for i = 1:length(subj_list)
         diary(fullfile(subject_dir,diaryname));
         
         fprintf(['\nSession ID: ',ses_id{j},'\n']);
-        out = create_sots(subj_list(i).name{1},task,data_analysis_path,ses_id{j},addsub,first_image,condfile,overwrite);
+        out = create_sots(subj_list(i).name{1},task,data_analysis_path,source_data_path,ses_id{j},addsub,first_image,condfile,overwrite);
         [lines,~] = size(out);
         stop = false;
         for k = 1:lines
