@@ -82,17 +82,18 @@ try
     delete(anat_nii);
 
     fprintf('Rename to BIDS format\n');
-    nii_file = spm_select('FPList',[subject_dir,filesep,'anat'],[series_n,'.*']);
 
-    [nr_files,~] = size(nii_file); % there will be two files if option to produce .json file is activated via dicm2nii GUI
-    if ~nr_files>1
-        out{dum,:} = 'Nifit-supporting json-file not found.\nSwitch on json-output via dicm2nii before you continue.\nError #10\n';
+    anonnii_file = spm_select('FPList',[subject_dir,filesep,'anat'],[series_n,'.*']);
+    [~,fn,~] = fileparts(anonnii_file(1,:));
+    
+    movefile([subject_dir,filesep,'anat',filesep,fn,'.nii'],[subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w.nii']);
+    
+    [~,fn,~] = fileparts(anat_nii(1,:));
+    try
+        movefile([subject_dir,filesep,'anat',filesep,fn,'.json'],[subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w.json']);
+    catch
+        out{dum,:} = 'Nifit-supporting json-file not found.\nSwitch on json-output via dicm2nii.\nError #10\n\n';
         dum = dum + 1;
-    end
-
-    for i = 1:nr_files
-        [~,fn,fe] = fileparts(nii_file(i,:));
-        movefile([subject_dir,filesep,'anat',filesep,fn,fe],[subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w',fe]);
     end
 
     out{dum,:} = 'Dicom import successful!\n\n';

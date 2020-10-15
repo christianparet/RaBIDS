@@ -8,6 +8,7 @@ function [out,scanprotocol] = obtain_scanprotocol(HowExpectDicoms,dicomdir,subje
 % Change log from v0.1:
 % - writes to dataset directory
 % - sanity check of MR series names
+% - create subject-directory if not existant
 
 %% Comment out if in use
 % clear
@@ -62,7 +63,7 @@ all_files=dir(strcat(dicomd,filesep,subject,suff,'.MR*.IMA'));
 disp('Reading data...');
 
 if isempty(all_files)
-    out{dum,1} = 'No data found for this session\n.Error #12\n';   
+    out{dum,1} = 'No data found for this session\n.Error #12\n\n';   
     return
 end
 
@@ -78,7 +79,7 @@ for i=1:length(ind_files)
     try
         hdr = dicominfo(fullfile(dicomd,ind_files{i}(1).name));
         if ~strcmp(hdr.PatientID,subject)
-            out{dum,1} = ['MRI-series #',num2str(i),': meta-data ID ''',hdr.PatientID,''' and ID assigned in datasheet ''',subject,''' are different.\nError #1.\n'];
+            out{dum,1} = ['MRI-series #',num2str(i),': meta-data ID ''',hdr.PatientID,''' and ID assigned in datasheet ''',subject,''' are different.\nError #1.\n\n'];
             dum=dum+1;
         end
         names(i,1) = {hdr.ProtocolName};
@@ -99,7 +100,7 @@ Z = struct('name',D,'freq',num2cell(Y(:)));
 for i=1:unique_seq
     if ~strcmp(Z(i).name,'No such series')
         if Z(i).freq>1
-            out{dum,1} = ['Found ',num2str(Z(i).freq),' MR series with name ',Z(i).name,'.\nFor BOLD series with identical names: ranges defined by MinImages-MaxImages must not overlap.\nError#11\n'];
+            out{dum,1} = ['Found ',num2str(Z(i).freq),' MR series with name ',Z(i).name,'.\nFor BOLD series with identical names: ranges defined by MinImages-MaxImages must not overlap.\nError#11\n\n'];
             dum=dum+1;
         end
     end
@@ -112,6 +113,9 @@ try
     name = names(1:length(vols));
     scanprotocol = table(series,name,vols);
     if strcmp(write,'yes')
+        if ~isfolder(subject_dir)
+            mkdir(subject_dir)
+        end
         writetable(scanprotocol,fullfile(subject_dir,[prefix,subject,'_',ses_id,'_scanprotocol.txt']),'Delimiter','tab')
     end
 
@@ -127,7 +131,7 @@ catch
         out{dum,1} = 'Found scanprotocol, will use that one.\n\n ';
         return
     catch
-        out{dum,1} = 'No scan protocol found.\nError #2.\n';
+        out{dum,1} = 'No scan protocol found.\nError #2.\n\n';
         return
     end
 end

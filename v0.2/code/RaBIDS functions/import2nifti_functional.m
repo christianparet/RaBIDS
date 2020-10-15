@@ -108,18 +108,17 @@ try
     fprintf('Rename to BIDS format\n');
        
     nii_file = spm_select('FPList',[subject_dir,filesep,'func'],[series_n,'.*']);
+    [~,fn,~] = fileparts(nii_file(1,:));
     
-    [nr_files,~] = size(nii_file); % there will be two files if option to produce .json file is activated via dicm2nii GUI
-    if ~nr_files>1
-        out{dum,:} = 'Nifit-supporting json-file not found.\nSwitch on json-output via dicm2nii before you continue.\nError #10\n';
+    movefile([subject_dir,filesep,'func',filesep,fn,'.nii'],[subject_dir,filesep,'func',filesep,prefix,subject,write_ses,'task-',task,'_bold.nii']);
+    
+    try
+        movefile([subject_dir,filesep,'func',filesep,fn,'.json'],[subject_dir,filesep,'func',filesep,prefix,subject,write_ses,'task-',task,'_bold.json']);
+    catch
+        out{dum,:} = 'Nifit-supporting json-file not found.\nSwitch on json-output via dicm2nii.\nError #10\n\n';
         dum = dum + 1;
     end
-    
-    for i = 1:nr_files
-        [~,fn,fe] = fileparts(nii_file(i,:));
-        movefile([subject_dir,filesep,'func',filesep,fn,fe],[subject_dir,filesep,'func',filesep,prefix,subject,write_ses,'task-',task,'_bold',fe]);
-    end
-    
+        
     out{dum,:} = 'Dicom import successful!\n\n';
     
     % Write task information to json file. This code could be extended in future with more task information provided in the datasheet table

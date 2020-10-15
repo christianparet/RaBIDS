@@ -61,7 +61,7 @@ end
 if isfolder([subject_dir,filesep,'fmap'])
     fprintf('Fieldmap directory exists.\n')
     if strcmp(overwrite,'yes')
-        fprintf('User permission given to overwrite files.\n');
+        fprintf('User permission given to write into fmap directory.\n');
     else
         fprintf('Permission to overwrite files denied.\n');
         return
@@ -97,7 +97,7 @@ try
             try
                 movefile([subject_dir,filesep,'fmap',filesep,fn,'.json'],[subject_dir,filesep,'fmap',filesep,prefix,subject,write_ses,'phasediff.json']);
             catch
-                out{dum,:} = 'json file for phasedifference map not found. Consider checking dicm2nii json-output options.\nError #10\n';
+                out{dum,:} = 'json file for phasedifference map not found. Consider checking dicm2nii json-output options.\nError #10\n\n';
                 dum = dum + 1;
             end
 
@@ -116,11 +116,8 @@ try
             end
             dum = dum + 1;
             
-            try
-                delete([subject_dir,filesep,'fmap',filesep,fn,'.json']); % delete json file; according to BIDS v1.4.1 standard no json file for magnitude image(s) needed
-            catch
-                out{dum,:} = 'json file for magnitude map not found. Consider checking dicm2nii json-output options.\nError #10\n';
-                dum = dum + 1;
+            if isfile([subject_dir,filesep,'fmap',filesep,fn,'.json']) % delete json file; according to BIDS v1.4.1 standard no json file for magnitude image(s) needed
+                delete([subject_dir,filesep,'fmap',filesep,fn,'.json'])
             end
                 
     end   
