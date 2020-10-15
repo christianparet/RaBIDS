@@ -7,6 +7,7 @@ function [out,scanprotocol] = obtain_scanprotocol(HowExpectDicoms,dicomdir,subje
 
 % Change log from v0.1:
 % - writes to dataset directory
+% - sanity check of MR series names
 
 %% Comment out if in use
 % clear
@@ -24,6 +25,8 @@ function [out,scanprotocol] = obtain_scanprotocol(HowExpectDicoms,dicomdir,subje
 
 data_dir =  'dataset';
 
+dum=1;
+
 if strcmp(HowExpectDicoms,'allinone')
         dicomd = [data_analysis_path,filesep,dicomdir];
 elseif strcmp(HowExpectDicoms,'BIDS')
@@ -33,7 +36,7 @@ elseif strcmp(HowExpectDicoms,'BIDS')
         dicomd = [dicomdir,filesep,subject,filesep,ses_id];
     end
 else
-    out{1} = 'User input to object type ''dicom'' not allowed. Must be either ''BIDS'' or ''allinone''.\nProgram stops.\n';
+    out{dum,:} = 'User input to object type ''dicom'' not allowed.\nError #7\nProgram stops.\n';
     return
 end
 
@@ -53,14 +56,13 @@ else
     subject_dir = [data_analysis_path,filesep,data_dir,filesep,prefix,subject,filesep,ses_id];
 end
 
-k=1;
 scanprotocol.name = {'no scan found'};
 
 all_files=dir(strcat(dicomd,filesep,subject,suff,'.MR*.IMA'));
 disp('Reading data...');
 
 if isempty(all_files)
-    out{k,1} = 'No data found for this session\n\n';   
+    out{dum,1} = 'No data found for this session\n.Error #12\n';   
     return
 end
 
@@ -76,8 +78,8 @@ for i=1:length(ind_files)
     try
         hdr = dicominfo(fullfile(dicomd,ind_files{i}(1).name));
         if ~strcmp(hdr.PatientID,subject)
-            out{k,1} = ['MRI-series #',num2str(i),': meta-data ID ''',hdr.PatientID,''' differs from ID assigned in datasheet ''',subject,'''.\nError #1.\n'];
-            k=k+1;
+            out{dum,1} = ['MRI-series #',num2str(i),': meta-data ID ''',hdr.PatientID,''' and ID assigned in datasheet ''',subject,''' are different.\nError #1.\n'];
+            dum=dum+1;
         end
         names(i,1) = {hdr.ProtocolName};
         vols(i,1) = length(ind_files{i});
@@ -85,6 +87,23 @@ for i=1:length(ind_files)
         names(i,1) = {'No such series'};
     end
 end
+
+%% Sanity check
+
+[D,~,IC] = unique(names(:));
+Y = hist(IC,unique(IC));
+Z = struct('name',D,'freq',num2cell(Y(:)));
+
+[unique_seq,~] = size(Z);
+
+for i=1:unique_seq
+    if ~strcmp(Z(i).name,'No such series')
+        if Z(i).freq>1
+            out{dum,1} = ['Found ',num2str(Z(i).freq),' MR series with name ',Z(i).name,'.\nFor BOLD series with identical names: ranges defined by MinImages-MaxImages must not overlap.\nError#11\n'];
+            dum=dum+1;
+        end
+    end
+end 
 
 %% Save scan protocol to dicomdir
 
@@ -96,19 +115,19 @@ try
         writetable(scanprotocol,fullfile(subject_dir,[prefix,subject,'_',ses_id,'_scanprotocol.txt']),'Delimiter','tab')
     end
 
-    out{k,1} = 'Scan protocol saved.\n\n';
+    out{dum,1} = 'Scan protocol saved.\n\n';
     return
     
 catch
-    out{k,1} = 'Not able to write scan protocol.\n';
-    k=k+1;
+    out{dum,1} = 'Not able to write scan protocol.\n';
+    dum=dum+1;
     
     try
         scanprotocol = readtable(fullfile(subject_dir,[prefix,subject,'_',ses_id,'_scanprotocol.txt']));
-        out{k,1} = 'Found scanprotocol, will use that one.\n\n ';
+        out{dum,1} = 'Found scanprotocol, will use that one.\n\n ';
         return
     catch
-        out{k,1} = 'No scan protocol found.\nError #2.\n';
+        out{dum,1} = 'No scan protocol found.\nError #2.\n';
         return
     end
 end

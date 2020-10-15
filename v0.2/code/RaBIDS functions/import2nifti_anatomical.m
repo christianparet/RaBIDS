@@ -6,6 +6,10 @@ function out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subject,suff,ses
 
 % Christian Paret, Central Institute of Mental Health Mannheim, 2018-2020
 
+% Change log from v0.1:
+% - implemented json-output check
+% - implemented Error-reporting
+
 %% Comment out if function in use
 % HowExpectDicoms = 'BIDS';
 % dicomdir = 'E:\mytrainingdata\data exchange server\RABIDS-example\dicomdir';
@@ -54,12 +58,12 @@ else
     subject_dir = [data_analysis_path,filesep,data_dir,filesep,prefix,subject,filesep,ses_id];
 end
 
-if isfolder([subject_dir,filesep,'anat'])
-    fprintf('Directory with functional images exists.\n')
+if isfile([subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w.nii'])
+    fprintf('Found existing anatomy nifti-file.\n')
     if strcmp(overwrite,'yes')
-        fprintf('User permission given to overwrite.\n');
+        fprintf('User permission given to overwrite files.\n');
     else
-        fprintf('Permission to overwrite declined.\n');
+        fprintf('Permission to overwrite files denied.\n');
         return
     end
 end
@@ -81,6 +85,10 @@ try
     nii_file = spm_select('FPList',[subject_dir,filesep,'anat'],[series_n,'.*']);
 
     [nr_files,~] = size(nii_file); % there will be two files if option to produce .json file is activated via dicm2nii GUI
+    if ~nr_files>1
+        out{dum,:} = 'Nifit-supporting json-file not found.\nSwitch on json-output via dicm2nii before you continue.\nError #10\n';
+        dum = dum + 1;
+    end
 
     for i = 1:nr_files
         [~,fn,fe] = fileparts(nii_file(i,:));

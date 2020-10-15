@@ -1,12 +1,16 @@
-function out = create_sots(subject,task,data_analysis_path,ses_id,addsub,firstpulse,condfile,overwrite)
+function out = create_sots(subject,task,data_analysis_path,source_data_path,ses_id,addsub,firstpulse,condfile,overwrite)
 % Create_SOTS by C. Paret, ZI-Mannheim, 2019-2020
 % v0.2 release
+
+% Change log from v0.1:
+% - sourcedata path as defined in datasheet
 
 %% Comment out if function in use
 % clear
 % clc
 % condfile = 'E:\mytrainingdata\your project directory\dataset\code\conditions_scenes.xlsx';
 % data_analysis_path = 'E:\mytrainingdata\your project directory';
+% source_data_path = 'E:\mytrainingdata\data exchange server\RABIDS-example\sourcedata';
 % subject = 'RABIDS01';
 % ses_id = 'ses-01';
 % addsub = 'y';
@@ -66,11 +70,11 @@ try
         
     if strcmp(ses_id,'none')
         write_ses = '_';
-        logdir = [data_analysis_path,filesep,'sourcedata',filesep,prefix,subject];
+        logdir = [source_data_path,filesep,prefix,subject];
         savedir = [data_analysis_path,filesep,'dataset',filesep,prefix,subject,filesep,'func'];
     else
         write_ses = ['_',ses_id,'_'];
-        logdir = [data_analysis_path,filesep,'sourcedata',filesep,prefix,subject,filesep,ses_id];
+        logdir = [source_data_path,filesep,prefix,subject,filesep,ses_id];
         savedir = [data_analysis_path,filesep,'dataset',filesep,prefix,subject,filesep,ses_id,filesep,'func'];
     end
     

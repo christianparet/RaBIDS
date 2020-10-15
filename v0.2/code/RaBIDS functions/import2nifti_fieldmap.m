@@ -9,6 +9,8 @@ function out = import2nifti_fieldmap(HowExpectDicoms,dicomdir,subject,suff,ses_i
 
 % Christian Paret, Central Institute of Mental Health Mannheim, 2020
 
+% New with v0.2
+
 %% Comment out if function in use
 % HowExpectDicoms = 'BIDS';
 % dicomdir = 'E:\mytrainingdata\data exchange server\RABIDS-example\dicomdir';
@@ -57,11 +59,11 @@ else
 end
 
 if isfolder([subject_dir,filesep,'fmap'])
-    fprintf('Directory for fieldmap images exists.\n')
+    fprintf('Fieldmap directory exists.\n')
     if strcmp(overwrite,'yes')
-        fprintf('User permission given to overwrite.\n');
+        fprintf('User permission given to overwrite files.\n');
     else
-        fprintf('Permission to overwrite declined.\n');
+        fprintf('Permission to overwrite files denied.\n');
         return
     end
 end
@@ -113,8 +115,14 @@ try
                 out{dum,:} = 'Found a single magnitude image.\n';
             end
             dum = dum + 1;
-
-            delete([subject_dir,filesep,'fmap',filesep,fn,'.json']); % delete json file; according to BIDS v1.4.1 standard no json file for magnitude image(s) needed
+            
+            try
+                delete([subject_dir,filesep,'fmap',filesep,fn,'.json']); % delete json file; according to BIDS v1.4.1 standard no json file for magnitude image(s) needed
+            catch
+                out{dum,:} = 'json file for magnitude map not found. Consider checking dicm2nii json-output options.\nError #10\n';
+                dum = dum + 1;
+            end
+                
     end   
     
     delete([subject_dir,filesep,'fmap',filesep,fn,'.nii']); % delete non-BIDS conform nii-image
