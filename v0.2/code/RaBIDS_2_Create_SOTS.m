@@ -9,7 +9,8 @@
 
 % Change log from v0.1:
 % - save command window output to subject directory
-% - datasheet variable name naming convention changed
+% - datasheet variable naming convention changed
+% - sourcedata path from datasheet
 
 clear
 clc
