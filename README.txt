@@ -18,5 +18,5 @@ Christian Paret – 2020
 RG Psychobiologie of Selfregulation
 Department of Psychosomatic and Psychotherapeutic Medicine
 Central Institute of Mental Health
-christian.paret@zi-mannheim.de
+christian . paret [at] zi-mannheim . de
 website: tinyurl.com/y5lujy49
