@@ -132,7 +132,12 @@ try
                 % add IntendedFor
                 for i = 1:length(IntendedFor)
                     if ischar(IntendedFor{1,i})
-                        jsonf.IntendedFor{i,1} = ['func/',prefix,subject,write_ses,'task-',IntendedFor{1,i},'_bold.nii'];
+                        if strcmp(ses_id,'none')
+                            taskp = ['func/',prefix,subject,write_ses,'task-',IntendedFor{1,i},'_bold.nii'];
+                        else
+                            taskp = [ses_id,'/func/',prefix,subject,write_ses,'task-',IntendedFor{1,i},'_bold.nii'];
+                        end
+                        jsonf.IntendedFor{i,1} = taskp;
                         out{dum,:} = ['Fieldmap intended for task ',IntendedFor{1,i},'.\n'];
                     else
                         if i == 1
