@@ -5,6 +5,8 @@ Description: RaBIDS is Matlab-based software supporting the import of human neur
 There are several limitations and software requirements that might prevent users from using the current beta version v0.2.X. Please consult the manual for more information.
 This project is currently under development. Before using RaBIDS please consult the manual. A tutorial is provided. Data for this tutorial can be requested from the author.
 
+Make sure to use the latest release, which is currently v0.2.1.
+
 Issue reporting: Report issues via Github.
 
 Contributing: Suggest changes via Github's pull request tool. Please connect with the author if you want to collaborate in the development of future versions.
