@@ -18,6 +18,7 @@ function out = import2nifti_fieldmap(HowExpectDicoms,dicomdir,subject,suff,ses_i
 
 % Change log to v0.2.1
 % - receive TE information for phasedifference image
+% - account for zipped nii files nii.gz
 
 %% Comment out if function in use
 % HowExpectDicoms = 'BIDS';
@@ -84,10 +85,10 @@ try
     
     filter_fm = [subject,suff,'.MR.',study_identifier,'.',sprintf('%04d',series),'.'];
     
-    dicm2nii([dicomd,filesep,filter_fm,'*'], [subject_dir,filesep,'fmap'], '.nii');
+    dicm2nii([dicomd,filesep,filter_fm,'*'], [subject_dir,filesep,'fmap'], 'nii.gz');
     delete([subject_dir,filesep,'fmap',filesep,'dcmHeaders.mat'])
     
-    nii_file = [subject_dir,filesep,'fmap',filesep,series_n,'*.nii'];  
+    nii_file = [subject_dir,filesep,'fmap',filesep,series_n,'*.gz'];  
     get_file = dir(nii_file);
     
     if length(get_file)>1
@@ -96,7 +97,7 @@ try
     end
     
     [~,fn,fe] = fileparts(get_file.name);
-    if strcmp(fn,[series_n,'_phase'])
+    if strcmp(fn,[series_n,'_phase.nii'])
         fieldmaptype = 'phasediff'; 
         if TE1>0 && TE2>0
             out{dum,:} = 'Phase difference-image found. TE specified.\n';
@@ -109,15 +110,16 @@ try
     end
     
     nii = nii_tool('load', [get_file.folder,filesep,get_file.name]);
+    ext = strfind(fn,'.nii');
+    fname = [subject_dir,filesep,'fmap',filesep,fn(1:ext-1),'.json'];
     
     switch fieldmaptype
         case 'phasediff'
             % Process image
             nii_tool('save', nii, [subject_dir,filesep,'fmap',filesep,prefix,subject,write_ses,'phasediff',fe]) % save volume 1; need to add run-<index> key/value pair or acq-<label> key/value pair to have more than one fmap per sessions
-
+                
             % Adapt information in json file, rename json file
             try
-                fname = [subject_dir,filesep,'fmap',filesep,fn,'.json'];
                 jsonf = jsondecode(fileread(fname));
                 
                 % anonymize
@@ -133,9 +135,9 @@ try
                 for i = 1:length(IntendedFor)
                     if ischar(IntendedFor{1,i})
                         if strcmp(ses_id,'none')
-                            taskp = ['func/',prefix,subject,write_ses,'task-',IntendedFor{1,i},'_bold.nii'];
+                            taskp = ['func/',prefix,subject,write_ses,'task-',IntendedFor{1,i},'_bold.nii.gz'];
                         else
-                            taskp = [ses_id,'/func/',prefix,subject,write_ses,'task-',IntendedFor{1,i},'_bold.nii'];
+                            taskp = [ses_id,'/func/',prefix,subject,write_ses,'task-',IntendedFor{1,i},'_bold.nii.gz'];
                         end
                         jsonf.IntendedFor{i,1} = taskp;
                         out{dum,:} = ['Fieldmap intended for task ',IntendedFor{1,i},'.\n'];
@@ -149,7 +151,6 @@ try
                 
                 jsonf_newname = [prefix,subject,write_ses,'phasediff.json'];
                 saveJSONfile(jsonf,fullfile(subject_dir,filesep,'fmap',filesep,jsonf_newname)) % Lior Kirsch (2020). Structure to JSON (https://www.mathworks.com/matlabcentral/fileexchange/50965-structure-to-json), MATLAB Central File Exchange. Retrieved February 27, 2020.
-                delete(fname);
             catch
                 out{dum,:} = 'json file for phasedifference map not found. Consider checking dicm2nii json-output options.\nError #10\n\n';
                 dum = dum + 1;
@@ -168,15 +169,13 @@ try
             catch
                 out{dum,:} = 'Found a single magnitude image.\n';
             end
-            dum = dum + 1;
-            
-            if isfile([subject_dir,filesep,'fmap',filesep,fn,'.json']) % delete json file; according to BIDS v1.4.1 standard no json file for magnitude image(s) needed
-                delete([subject_dir,filesep,'fmap',filesep,fn,'.json'])
-            end
-                
+            dum = dum + 1;                
     end   
     
-    delete([subject_dir,filesep,'fmap',filesep,fn,'.nii']); % delete non-BIDS conform nii-image
+    if isfile(fname) % delete json file; according to BIDS v1.4.1 standard no json file for magnitude image(s) needed
+        delete(fname)
+    end    
+    delete([subject_dir,filesep,'fmap',filesep,fn,'.gz']); % delete non-BIDS conform nii-image
         
     out{dum,:} = 'Dicom import successful!\n\n';
     
