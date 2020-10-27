@@ -59,7 +59,7 @@ else
     subject_dir = [data_analysis_path,filesep,data_dir,filesep,prefix,subject,filesep,ses_id];
 end
 
-if isfile([subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w.nii']) || isfile([subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w.nii.nii'])
+if isfile([subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w.nii']) || isfile([subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w.nii.gz'])
     fprintf('Found existing anatomy nifti-file.\n')
     if strcmp(overwrite,'yes')
         fprintf('User permission given to overwrite files.\n');
