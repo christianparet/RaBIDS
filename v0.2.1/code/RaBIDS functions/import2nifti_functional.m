@@ -1,5 +1,5 @@
 function out = import2nifti_functional(HowExpectDicoms,dicomdir,subject,suff,ses_id,study_identifier,first_image,data_analysis_path,series,series_n,task,addsub,overwrite)
-% v0.2 release
+% v0.2.1 release
 
 % Uses dicm2nii toolbox to import dicom-images to nifti-format
 % Folder structure in BIDS format is produced, for more information see: Gorgolewski, K. J. et al., Sci. Data 3:160044, doi: 10.1038/sdata.2016.44 (2016)
@@ -9,6 +9,7 @@ function out = import2nifti_functional(HowExpectDicoms,dicomdir,subject,suff,ses
 % Change log from v0.1:
 % - implemented json-output check
 % - implemented Error-reporting
+% - account for nii.gz
 
 %% Comment out if function in use
 % HowExpectDicoms = 'BIDS';
@@ -17,6 +18,7 @@ function out = import2nifti_functional(HowExpectDicoms,dicomdir,subject,suff,ses
 % suff = '';
 % ses_id = 'ses-01';
 % study_identifier = 'PSM_BI-STUDIE';
+% first_image = 5;
 % data_analysis_path = 'E:\mytrainingdata\your project directory';
 % series = 6;
 % series_n = 'ep2d_TR2000_64_Scenes';
@@ -58,8 +60,13 @@ else
     subject_dir = [data_analysis_path,filesep,data_dir,filesep,prefix,subject,filesep,ses_id];
 end
 
-if isfile([subject_dir,filesep,'func',filesep,prefix,subject,write_ses,'task-',task,'_bold.nii'])
+funcp = [subject_dir,filesep,'func'];
+if isfile([funcp,filesep,prefix,subject,write_ses,'task-',task,'_bold.nii']) || isfile([funcp,filesep,prefix,subject,write_ses,'task-',task,'_bold.nii.gz'])
     fprintf('Found existing nifti-file for this task.\n')
+    if isfile([funcp,filesep,prefix,subject,write_ses,'task-',task,'_bold.nii'])
+        out{dum,:} = ('Existing nifti-file is not zipped - not compatible with automated fieldmap routine.\nError #14\n');
+        dum = dum + 1;
+    end    
     if strcmp(overwrite,'yes')
         fprintf('User permission given to overwrite files.\n');
     else
@@ -68,7 +75,7 @@ if isfile([subject_dir,filesep,'func',filesep,prefix,subject,write_ses,'task-',t
     end
 end
 
-try
+% try
     
     filter_epi = [subject,suff,'.MR.',study_identifier,'.',sprintf('%04d',series),'.'];
     
@@ -100,22 +107,33 @@ try
         fprintf('No initial functional images found, continue.\n');
     end
     
-    dicm2nii([dicomd,filesep,filter_epi,'*'], [subject_dir,filesep,'func'], '.nii');
+    dicm2nii([dicomd,filesep,filter_epi,'*'], [subject_dir,filesep,'func'], '.nii.gz');
     delete([subject_dir,filesep,'func',filesep,'dcmHeaders.mat'])
     
     %% Rename to BIDS format
     
     fprintf('Rename to BIDS format\n');
-       
-    nii_file = spm_select('FPList',[subject_dir,filesep,'func'],[series_n,'.*']);
-    [~,fn,~] = fileparts(nii_file(1,:));
+        
+    nii_file = [subject_dir,filesep,'func',filesep,series_n,'*.gz'];  
+    get_file = dir(nii_file);
     
-    movefile([subject_dir,filesep,'func',filesep,fn,'.nii'],[subject_dir,filesep,'func',filesep,prefix,subject,write_ses,'task-',task,'_bold.nii']);
+    if length(get_file)>1
+        out{dum,:} = 'Expected one imported nifti file but found more than one.\nError #13.\nProgram stops.\n';
+        return
+    end
+    
+    [~,fn,fe] = fileparts(get_file.name);
+    nii = nii_tool('load', [get_file.folder,filesep,get_file.name]);
+    ext = strfind(fn,'.nii');
+    
+    nii_tool('save', nii, [subject_dir,filesep,'func',filesep,prefix,subject,write_ses,'task-',task,'_bold',fe]);
+
+    delete([subject_dir,filesep,'func',filesep,fn,'.gz']); % delete non-BIDS conform nii-image
     
     try
-        movefile([subject_dir,filesep,'func',filesep,fn,'.json'],[subject_dir,filesep,'func',filesep,prefix,subject,write_ses,'task-',task,'_bold.json']);
+        movefile([subject_dir,filesep,'func',filesep,fn(1:ext-1),'.json'],[subject_dir,filesep,'func',filesep,prefix,subject,write_ses,'task-',task,'_bold.json']);
     catch
-        out{dum,:} = 'Nifit-supporting json-file not found.\nSwitch on json-output via dicm2nii.\nError #10\n\n';
+        out{dum,:} = 'Nifti-supporting json-file not found.\nSwitch on json-output via dicm2nii.\nError #10\n\n';
         dum = dum + 1;
     end
         
@@ -130,7 +148,7 @@ try
         end
     end
     
-catch
-    out{dum,:} = 'Scans for this task were not found for this subject/session.\nError #8\n';
-    return
-end
+% catch
+%     out{dum,:} = 'Scans for this task were not found for this subject/session.\nError #8\n';
+%     return
+% end

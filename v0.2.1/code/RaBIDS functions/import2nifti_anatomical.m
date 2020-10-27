@@ -1,5 +1,5 @@
 function out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subject,suff,ses_id,study_identifier,data_analysis_path,series,series_n,addsub,overwrite)
-% v0.2 release
+% v0.2.1 release
 
 % Uses dicm2nii toolbox to import dicom-images to nifti-format
 % Folder structure in BIDS format is produced, for more information see: Gorgolewski, K. J. et al., Sci. Data 3:160044, doi: 10.1038/sdata.2016.44 (2016)
@@ -9,6 +9,7 @@ function out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subject,suff,ses
 % Change log from v0.1:
 % - implemented json-output check
 % - implemented Error-reporting
+% - account for nii.gz
 
 %% Comment out if function in use
 % HowExpectDicoms = 'BIDS';
@@ -58,7 +59,7 @@ else
     subject_dir = [data_analysis_path,filesep,data_dir,filesep,prefix,subject,filesep,ses_id];
 end
 
-if isfile([subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w.nii'])
+if isfile([subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w.nii']) || isfile([subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w.nii.gz'])
     fprintf('Found existing anatomy nifti-file.\n')
     if strcmp(overwrite,'yes')
         fprintf('User permission given to overwrite files.\n');
@@ -86,7 +87,11 @@ try
     anonnii_file = spm_select('FPList',[subject_dir,filesep,'anat'],[series_n,'.*']);
     [~,fn,~] = fileparts(anonnii_file(1,:));
     
-    movefile([subject_dir,filesep,'anat',filesep,fn,'.nii'],[subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w.nii']);
+    oldf = [subject_dir,filesep,'anat',filesep,fn,'.nii'];
+    newf = [subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w.nii'];    
+    movefile(oldf,newf);
+    gzip(newf);
+    delete(newf);
     
     [~,fn,~] = fileparts(anat_nii(1,:));
     try
