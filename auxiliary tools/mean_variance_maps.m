@@ -1,25 +1,21 @@
 %% Produce mean and variance images from BOLD series
-% Computes mean and variance image from MR series in nifti format and saves it to the data analysis path. This is good for MRI quality control of T2* sequences for MR BOLD imaging. For more information on QC see https://imaging.mrc-cbu.cam.ac.uk/imaging/DataDiagnostics
+% Computes mean and variance image from MR series in nifti format and saves it to the data analysis path. This is good for MRI quality control of T2* sequences for MR BOLD imaging. 
+% Use software such as MRIcron to display images for visual inspection. For more information on QC and how to interpret mean and maximum images see https://imaging.mrc-cbu.cam.ac.uk/imaging/DataDiagnostics
 % SPM path needs to be set. Tested with SPM12 and Matlab v2020. Assumes dataset in BIDS format.
+% To use this code with RaBIDS, you need to place this file into the 'code' directory.
+
 % Christian Paret, ZI Mannheim, 2020
 
 clear
 % spm_jobman('initcfg')
 
 %% Select dataset
-% Use this routine if dataset has been created with RaBIDS
-
+% Use below routine if dataset has been created with RaBIDS. Otherwise: define parent directory of your BIDS dataset in variable 'data_analysis_path' and comment out lines 14-18.
 data = readtable('datasheet.xlsx','ReadRowNames',true,'PreserveVariableNames',true,'NumHeaderLines',0);
-
 userInputcol = find(strcmp(data.Properties.VariableNames,'UserInput'));
-
 DataAnalysisPathline = find(strcmp(data.Properties.RowNames,'data analysis path'));
 data_analysis_path = data{DataAnalysisPathline,userInputcol}{:};
-
 datasetd = [data_analysis_path,filesep,'dataset'];
-
-% Otherwise: define parent directory of dataset in variable 'data_analysis_path' 
-
 %% 
 
 allsubs = dir([datasetd,filesep,'sub-*']);
