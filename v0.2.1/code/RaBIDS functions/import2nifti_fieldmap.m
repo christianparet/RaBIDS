@@ -122,12 +122,16 @@ try
             try
                 jsonf = jsondecode(fileread(fname));
                 
-                % anonymize
+               % anonymize
                 jsonf.PatientName = subject;
-                jsonf = rmfield(jsonf,{'PatientSex','PatientAge','PatientSize','PatientWeight','AcquisitionDateTime'});
+                try jsonf = rmfield(jsonf,{'PatientSex'}); end
+                try jsonf = rmfield(jsonf,{'PatientAge'}); end
+                try jsonf = rmfield(jsonf,{'PatientSize'}); end
+                try jsonf = rmfield(jsonf,{'PatientWeight'}); end
+                try jsonf = rmfield(jsonf,{'AcquisitionDateTime'}); end
                 
                 % add TE
-                jsonf = rmfield(jsonf,'EchoTime');
+                try jsonf = rmfield(jsonf,'EchoTime'); end
                 jsonf.EchoTime1 = TE1;
                 jsonf.EchoTime2 = TE2;
                 
