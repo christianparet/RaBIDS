@@ -1,17 +1,19 @@
 function out = create_sots(subject,task,data_analysis_path,source_data_path,ses_id,addsub,firstpulse,condfile,overwrite)
 % Create_SOTS by C. Paret, ZI-Mannheim, 2019-2020
-% v0.2 release
+% v0.2.1 release
 
 % Change log from v0.1:
 % - sourcedata path as defined in datasheet
+% - more flexibility to tolerate unexpected naming scheme in sourcedata directory structure
+% - richer error reporting
 
 %% Comment out if function in use
 % clear
 % clc
-% condfile = 'E:\mytrainingdata\your project directory\dataset\code\conditions_scenes.xlsx';
+% condfile = 'E:\mytrainingdata\your project directory\dataset\code\conditions_faces.xlsx';
 % data_analysis_path = 'E:\mytrainingdata\your project directory';
 % source_data_path = 'E:\mytrainingdata\data exchange server\RABIDS-example\sourcedata';
-% subject = 'RABIDS01';
+% subject = 'RaBIDS01';
 % ses_id = 'ses-01';
 % addsub = 'y';
 % task = 'scenes';
@@ -36,22 +38,20 @@ try
     OffsetIDcol = find(strcmp(conddata.Properties.VariableNames,'OffsetID'));
     
     condlines = find(contains(conddata.Properties.RowNames,'Condition'));
-    
-    k=1;
-    
+        
     for i = 1:length(condlines)
         allcond{i}.Name = conddata{condlines(i),Namecol}{:};
         allcond{i}.OnsetID = conddata{condlines(i),OnsetIDcol}{:};
                 
         if ~iscell(conddata{condlines(i),Durationcol}) || (iscell(conddata{condlines(i),Durationcol}) && isempty(conddata{condlines(i),Durationcol}{:})) % if duration is not defined in conditions_TaskName.xlsx...
             if ~iscell(conddata{condlines(i),OffsetIDcol}) || (iscell(conddata{condlines(i),OffsetIDcol}) && isempty(conddata{condlines(i),OffsetIDcol}))
-                out{k,:} = ['Duration and OffsetID not defined for condition ',allcond{i}.Name,'.\nError #4.\nProgram stops\n'];
+                out{dum,:} = ['Duration and OffsetID not defined for condition ',allcond{i}.Name,'.\nError #4.\nProgram stops\n'];
                 return
             else
                 allcond{i}.OffsetID = conddata{condlines(i),OffsetIDcol}{:};
                 allcond{i}.Duration = -1;
-                out{k,:} = ['Duration not defined for condition ',allcond{i}.Name,'. OffsetID is used.\n'];
-                k=k+1;
+                out{dum,:} = ['Duration not defined for condition ',allcond{i}.Name,'. OffsetID is used.\n'];
+                dum=dum+1;
             end
         else
             allcond{i}.Duration = conddata{condlines(i),Durationcol}{:};
@@ -71,10 +71,30 @@ try
     if strcmp(ses_id,'none')
         write_ses = '_';
         logdir = [source_data_path,filesep,prefix,subject];
+        
+        % give flexibility if files in sourcedata folder do not stringently follow naming scheme
+        if ~isfolder(logdir)
+            logdir = [source_data_path,filesep,subject];
+            if ~isfolder(logdir)
+                out{dum,:} = 'Logfile directory not found.\Error #16\nContinue with next session.\n';
+                return
+            end
+        end
+            
         savedir = [data_analysis_path,filesep,'dataset',filesep,prefix,subject,filesep,'func'];
     else
         write_ses = ['_',ses_id,'_'];
         logdir = [source_data_path,filesep,prefix,subject,filesep,ses_id];
+        
+        % give flexibility if files in sourcedata folder do not stringently follow naming scheme
+        if ~isfolder(logdir)
+            logdir = [source_data_path,filesep,subject,filesep,ses_id];
+            if ~isfolder(logdir)
+                out{dum,:} = 'Logfile directory not found.\Error #16\nContinue with next session.\n';
+                return
+            end
+        end
+        
         savedir = [data_analysis_path,filesep,'dataset',filesep,prefix,subject,filesep,ses_id,filesep,'func'];
     end
     
@@ -83,7 +103,9 @@ try
     
     if ~isfile(sotsf) || contains(overwrite,'y') % check whether file exists or overwrite
         
-        mkdir(savedir)
+        if ~isfolder(savedir)
+            mkdir(savedir)
+        end
         
         %% Read Presentation-logfile, get onsets and durations
         LogFormatLine = find(strcmp(conddata.Properties.RowNames,'Logfile ID format'));
@@ -92,18 +114,33 @@ try
         LogID = conddata{LogIDline,Namecol}{:};
         
         if strcmp(LogFormat,'BIDS')
-            logfile = dir([logdir,filesep,prefix,subject,write_ses,LogID,'.log']);
+            filename = [subject,write_ses,LogID,'.log'];
+            logfile = dir([logdir,filesep,filename]); % Tolerate deviation of naming scheme           
+            if isempty(logfile)
+                filename = [prefix,filename];
+                logfile = dir([logdir,filesep,filename]);
+            else
+                out{dum,:} = 'Logfile not found.\nError #15\nContinue with next session.\n';
+                return
+            end
         elseif strcmp(LogFormat,'free')
-            logfile = dir([logdir,filesep,LogID,'.log']);
+            filename = [LogID,'.log'];
+            logfile = dir([logdir,filesep,filename]);
+            if isempty(logfile)
+                out{dum,:} = 'Logfile not found.\nError #15\nContinue with next session.\n';
+                return
+            end          
         else
-            out{k} = 'User input to object type ''Logfile ID format'' in conditions_TaskName.xlsx is not valid.\nError #5.\nProgram stops.\\n';
+            out{dum,:} = 'User input to object type ''Logfile ID format'' in conditions_TaskName.xlsx is invalid.\nError #5.\nProgram stops.\\n';
             return
         end
         
         try
             [event_type,event_code,event_time]=textread([logfile.folder,filesep,logfile.name],'%*d %s %s %d %*s%*s%*s%*s%*s%*s%*s%*s%*s','headerlines',IgnoreHeaderLines);
+            out{dum,:} = ['Use logfile ',logfile.name,'\n'];
+            dum=dum+1;
         catch
-            out{k} = 'Cannot read logfile.\nError #6.\nContinue with next session.\n\n';
+            out{dum,:} = 'Cannot read logfile.\nError #6.\nContinue with next session.\n\n';
             return
         end
         
