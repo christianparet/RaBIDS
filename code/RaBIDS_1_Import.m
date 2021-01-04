@@ -1,7 +1,12 @@
 %% RaBIDS - Rapid preparation of BIDS
-% v0.2.1 release
+% v0.2.2 release
 
-% Change log from v0.1: 
+% Change log 
+
+% v0.2.2 
+% - added fieldmap import
+
+% v0.1: 
 % - see obtain_scanprotocol; scan protocol saved to subject directory
 % - save command window output to RaBIDS-logs directory
 % - new entries added to bidsignore-file to allow above output in BIDS validation
@@ -183,9 +188,11 @@ for i = 1:length(subj_list)
                 n_min = n_series(k,1);
                 n_max = n_series(k,2);
                 metadata = metadata_series{k};
-                fmapTE1 = fmapTE_series(k,1);
-                fmapTE2 = fmapTE_series(k,2);
-                fmapIntendedFor = fmapIntendedFor_series(k,:);
+                if contains(task,'fieldmap')
+                    fmapTE1 = fmapTE_series(k,1);
+                    fmapTE2 = fmapTE_series(k,2);
+                    fmapIntendedFor = fmapIntendedFor_series(k,:);
+                end
                 
                 % select MR series from scanprotocol
                 [nr,~] = size(scanprotocol);
