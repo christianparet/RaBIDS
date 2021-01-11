@@ -1,8 +1,10 @@
 %% Creates nuisance regressor mat-file ready for spm analysis
 % Christian Paret, ZI-Mannheim, 2021
 
-% Requires dataset in BIDS format and derivatives output from fmriPrep (tested with version 20.2.0)
+% Requires dataset according to BIDS standard and derivatives output from fmriPrep (tested with version 20.2.0)
+% Requires dataset-table according to RaBIDS standard
 % 6 realignment regressors (3 translation, 3 rotation parameters) are used
+%
 % Download program to dataset/code directory to run
 
 %% Read data from datasheet
@@ -13,7 +15,7 @@ userInputcol = find(strcmp(data.Properties.VariableNames,'UserInput'));
 DataAnalysisPathline = find(strcmp(data.Properties.RowNames,'data analysis path'));
 data_analysis_path = data{DataAnalysisPathline,userInputcol}{:};
 
-%% identify derivative directory to work on
+%% Identify derivative directory to work on
 derivd = dir([data_analysis_path,filesep,'derivatives',filesep,'fmriprep*']);
 
 fprintf(['Found ',num2str(length(derivd)),' derivative directories:\n'])
@@ -25,10 +27,6 @@ end
 selectd = input('Enter number of derivative directory to unzip preporcessed niftis and press enter.\n');
 derivd = [data_analysis_path,filesep,'derivatives',filesep,derivd(selectd).name];
 
-%% Task to work on
-reqtask = input('What task to work on? Enter a single task name or enter ''all'' to process all tasks available.\n');
-
-%% Load confound timeseries produced by fMRIPrep and save spm nuisance regressor files
 % in case of nested structure: account for 2 layers of fmriprep directories
 try
     childd = dir([derivd,filesep,'fmriprep*']);
@@ -50,8 +48,10 @@ try
     end
 end
 
-%% Read confounds timeseries file and write realignment parameters to nuisance file
+%% Task to work on
+reqtask = input('What task to work on? Enter a single task name or enter ''all'' to process all tasks available.\n');
 
+%% Read confounds timeseries file and write realignment parameters to nuisance file
 allsubs = dir([derivd,filesep,'sub-*']);
 
 for sub = 1:length(allsubs)
@@ -104,7 +104,7 @@ for sub = 1:length(allsubs)
                     end
                 end
             else
-                fprintf('No func directory found.\n');
+                fprintf('No func directory found or confound file not readable.\n');
             end
         end
     end
