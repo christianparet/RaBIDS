@@ -3,7 +3,6 @@
 
 % Requires dataset according to BIDS standard and derivatives output from fmriPrep (tested with version 20.2.0)
 % Requires dataset-table according to RaBIDS standard
-% 6 realignment regressors (3 translation, 3 rotation parameters) are used
 %
 % Unzip nifti-images before running this script.
 % Download program to dataset/code directory to run
