@@ -80,6 +80,7 @@ for sub = 1:length(allsubs)
                         taskid = niif(funcs).name(pos1+5:pos2-1);
                         
                         if strcmp(reqtask,'all') || strcmp(reqtask,taskid)
+                            pos = strfind(niif(funcs).name,'_bold.nii');
                             newnii_name = [niif(funcs).name(1:pos),'desc-s',num2str(smkernel),niif(funcs).name(pos:end)];
                             
                             if ~isfile(fullfile(derivd,allsubs(sub).name,'ses-post','func',newnii_name))
@@ -94,8 +95,6 @@ for sub = 1:length(allsubs)
                                 spm_jobman('initcfg')
                                 fprintf(['Start smoothing of ',niif(funcs).name,'.\n'])
                                 spm_jobman('run', matlabbatch);
-
-                                pos = strfind(niif(funcs).name,'_bold.nii');
 
                                 fprintf('Rename to BIDS standard.\n')
                                 movefile(fullfile(derivd,allsubs(sub).name,'ses-post','func',['s',niif(funcs).name]),fullfile(derivd,allsubs(sub).name,'ses-post','func',newnii_name))
