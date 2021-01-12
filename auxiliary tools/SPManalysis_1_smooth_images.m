@@ -54,6 +54,9 @@ reqtask = input('What task to work on? Enter a single task name or enter ''all''
 %% Smoothing kernel
 smkernel = input('Define smoothing kernel (mm).\n');
 
+%% Initialize SPM
+spm_jobman('initcfg')
+
 %% Read confounds timeseries file and write realignment parameters to nuisance file
 allsubs = dir([derivd,filesep,'sub-*']);
 
@@ -91,10 +94,10 @@ for sub = 1:length(allsubs)
                                 matlabbatch{1}.spm.spatial.smooth.dtype = 0;
                                 matlabbatch{1}.spm.spatial.smooth.im = 0;
                                 matlabbatch{1}.spm.spatial.smooth.prefix = 's';
-
-                                spm_jobman('initcfg')
+                                
                                 fprintf(['Start smoothing of ',niif(funcs).name,'.\n'])
                                 spm_jobman('run', matlabbatch);
+                                clear matlabbatch
 
                                 fprintf('Rename to BIDS standard.\n')
                                 movefile(fullfile(derivd,allsubs(sub).name,'ses-post','func',['s',niif(funcs).name]),fullfile(derivd,allsubs(sub).name,'ses-post','func',newnii_name))
