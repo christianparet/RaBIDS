@@ -1,4 +1,4 @@
-%% Uses spm12 to smooth brain maps received with fMRIPrep
+%% Use spm12 to smooth brain maps received with fMRIPrep
 % Christian Paret, ZI-Mannheim, 2021
 
 % Requires dataset according to BIDS standard and derivatives output from fmriPrep (tested with version 20.2.0)
@@ -9,9 +9,12 @@
 
 %% Read data from datasheet
 data = readtable('datasheet.xlsx','ReadRowNames',true,'PreserveVariableNames',true,'NumHeaderLines',0);
-
+AddPathline = find(contains(data.Properties.RowNames,'add path'));
 userInputcol = find(strcmp(data.Properties.VariableNames,'UserInput'));
-
+for i = 1:length(AddPathline)
+    addpath(data{AddPathline(i),userInputcol}{:});
+end
+userInputcol = find(strcmp(data.Properties.VariableNames,'UserInput'));
 DataAnalysisPathline = find(strcmp(data.Properties.RowNames,'data analysis path'));
 data_analysis_path = data{DataAnalysisPathline,userInputcol}{:};
 
@@ -57,7 +60,7 @@ smkernel = input('Define smoothing kernel (mm).\n');
 %% Initialize SPM
 spm_jobman('initcfg')
 
-%% Read confounds timeseries file and write realignment parameters to nuisance file
+%% Smooth images
 allsubs = dir([derivd,filesep,'sub-*']);
 
 for sub = 1:length(allsubs)
@@ -75,7 +78,7 @@ for sub = 1:length(allsubs)
                 fprintf([allses(ses).name,'\n'])
                 
                 if isfolder([sesd,filesep,'func'])
-                    niif = dir([sesd,filesep,'func',filesep,'sub-*-preproc_bold.nii']);
+                    niif = dir(fullfile(sesd,'func','sub-*-preproc_bold.nii'));
                     
                     for funcs = 1:length(niif)
                         pos1 = strfind(niif(funcs).name,'task');
@@ -83,13 +86,13 @@ for sub = 1:length(allsubs)
                         taskid = niif(funcs).name(pos1+5:pos2-1);
                         
                         if strcmp(reqtask,'all') || strcmp(reqtask,taskid)
-                            pos = strfind(niif(funcs).name,'_bold.nii');
-                            newnii_name = [niif(funcs).name(1:pos),'desc-s',num2str(smkernel),niif(funcs).name(pos:end)];
+                            pos1 = strfind(niif(funcs).name,'_bold.nii');
+                            newnii_name = [niif(funcs).name(1:pos1),'desc-s',num2str(smkernel),niif(funcs).name(pos1:end)];
                             
-                            if ~isfile(fullfile(derivd,allsubs(sub).name,'ses-post','func',newnii_name))
-                                getscans = cellstr(spm_select('Expand',fullfile(derivd,allsubs(sub).name,'ses-post','func',niif(funcs).name)));
+                            if ~isfile(fullfile(sesd,'func',newnii_name))
+                                getscans = cellstr(spm_select('Expand',fullfile(sesd,'func',niif(funcs).name)));
                                 matlabbatch{1}.spm.spatial.smooth.data = getscans;
-
+                                
                                 matlabbatch{1}.spm.spatial.smooth.fwhm = [smkernel smkernel smkernel];
                                 matlabbatch{1}.spm.spatial.smooth.dtype = 0;
                                 matlabbatch{1}.spm.spatial.smooth.im = 0;
@@ -98,11 +101,20 @@ for sub = 1:length(allsubs)
                                 fprintf(['Start smoothing of ',niif(funcs).name,'.\n'])
                                 spm_jobman('run', matlabbatch);
                                 clear matlabbatch
-
-                                fprintf('Rename to BIDS standard.\n')
-                                movefile(fullfile(derivd,allsubs(sub).name,'ses-post','func',['s',niif(funcs).name]),fullfile(derivd,allsubs(sub).name,'ses-post','func',newnii_name))
                                 
-                                fprintf(['Saved to file ',newnii_name,'.\n'])                                
+                                fprintf('Rename to BIDS standard.\n')
+                                movefile(fullfile(derivd,allsubs(sub).name,allses(ses).name,'func',['s',niif(funcs).name]),fullfile(derivd,allsubs(sub).name,allses(ses).name,'func',newnii_name))
+                                
+                                % add json file for smoothed image
+                                pos2 = strfind(niif(funcs).name,'.nii');
+                                jsonf = [niif(funcs).name(1:pos2),'json'];
+                                jsondata = jsondecode(fileread(fullfile(sesd,'func',jsonf)));
+                                jsondata.SmoothingKernel = smkernel;
+                                pos3 = strfind(newnii_name,'.nii');
+                                newjsonf = [newnii_name(1:pos3),'json'];
+                                saveJSONfile(jsondata,fullfile(sesd,'func',newjsonf)) % Lior Kirsch (2020). Structure to JSON (https://www.mathworks.com/matlabcentral/fileexchange/50965-structure-to-json), MATLAB Central File Exchange. Retrieved February 27, 2020.
+                                
+                                fprintf(['Saved to file ',newnii_name,'.\n'])
                             else
                                 fprintf('Found existing nifti file for this task with same smoothing kernel. Continue with next subject/session.\n')
                             end
@@ -114,6 +126,7 @@ for sub = 1:length(allsubs)
                 end
             end
         catch
+            % code in catch statement has not been tested. code could be simplified that catch statement becomes unnecessary.
             if isfolder([subd,filesep,'func'])
                 niif = dir([subd,filesep,'func',filesep,'sub-*-confounds_timeseries.tsv']);
                 
@@ -123,23 +136,39 @@ for sub = 1:length(allsubs)
                     taskid = niif(funcs).name(pos1+5:pos2-1);
                     
                     if strcmp(reqtask,'all') || strcmp(reqtask,taskid)
-                        getscans = cellstr(spm_select('Expand',fullfile(derivd,allsubs(sub).name,'ses-post','func',niif(funcs).name)));
-                        matlabbatch{1}.spm.spatial.smooth.data = getscans;
                         
-                        matlabbatch{1}.spm.spatial.smooth.fwhm = [smkernel smkernel smkernel];
-                        matlabbatch{1}.spm.spatial.smooth.dtype = 0;
-                        matlabbatch{1}.spm.spatial.smooth.im = 0;
-                        matlabbatch{1}.spm.spatial.smooth.prefix = 's';
-                        
-                        spm_jobman('initcfg')
-                        fprintf(['Start smoothing of ',niif(funcs).name,'.\n'])
-                        spm_jobman('run', matlabbatch);
-                        
-                        pos = strfind(niif(funcs).name,'_bold.nii');
-                        newnii_name = [niif(funcs).name(1:pos),'_desc-s',num2str(smkernel),niif(funcs).name(pos:end)];
-                        
-                        fprintf('Rename to BIDS standard.\n')
-                        movefile(fullfile(derivd,allsubs(sub).name,'ses-post','func',['s',niif(funcs).name]),fullfile(derivd,allsubs(sub).name,'ses-post','func',newnii_name))
+                        if ~isfile(fullfile(subd,'func',newnii_name))
+                            getscans = cellstr(spm_select('Expand',fullfile(subd,'func',niif(funcs).name)));
+                            matlabbatch{1}.spm.spatial.smooth.data = getscans;
+                            
+                            matlabbatch{1}.spm.spatial.smooth.fwhm = [smkernel smkernel smkernel];
+                            matlabbatch{1}.spm.spatial.smooth.dtype = 0;
+                            matlabbatch{1}.spm.spatial.smooth.im = 0;
+                            matlabbatch{1}.spm.spatial.smooth.prefix = 's';
+                            
+                            spm_jobman('initcfg')
+                            fprintf(['Start smoothing of ',niif(funcs).name,'.\n'])
+                            spm_jobman('run', matlabbatch);
+                            
+                            pos1 = strfind(niif(funcs).name,'_bold.nii');
+                            newnii_name = [niif(funcs).name(1:pos1),'_desc-s',num2str(smkernel),niif(funcs).name(pos1:end)];
+                            
+                            fprintf('Rename to BIDS standard.\n')
+                            movefile(fullfile(subd,'func',['s',niif(funcs).name]),fullfile(subd,'func',newnii_name))
+                            
+                            % add json file for smoothed image
+                            pos2 = strfind(niif(funcs).name,'.nii');
+                            jsonf = [niif(funcs).name(1:pos2),'json'];
+                            jsondata = jsondecode(fileread(fullfile(subd,'func',jsonf)));
+                            jsondata.SmoothingKernel = smkernel;
+                            pos3 = strfind(newnii_name,'.nii');
+                            newjsonf = [newnii_name(1:pos3),'json'];
+                            saveJSONfile(jsondata,fullfile(subd,'func',newjsonf)) % Lior Kirsch (2020). Structure to JSON (https://www.mathworks.com/matlabcentral/fileexchange/50965-structure-to-json), MATLAB Central File Exchange. Retrieved February 27, 2020.
+                            
+                            fprintf(['Saved to file ',newnii_name,'.\n'])
+                        else
+                            fprintf('Found existing nifti file for this task with same smoothing kernel. Continue with next subject/session.\n')
+                        end
                     end
                 end
             else
