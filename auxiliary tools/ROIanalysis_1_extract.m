@@ -17,11 +17,11 @@ addpath(genpath(folder));
 
 %% Define directories and initiate variables
 pos = 0;
-firstleveldir = uigetdir(pwd,'Select firstlevel directory including the subject directories'); % directory containing child directories with each child containing an estimated firstlevel SPM.mat
-% firstleveldir = 'Y:\Projects\EFPTest\Data_analysis\spm_analysis\firstlevel\ses-pre\task-efptest\taskrelated_activity';
+% firstleveldir = uigetdir(pwd,'Select firstlevel directory including the subject directories'); % directory containing child directories with each child containing an estimated firstlevel SPM.mat
+firstleveldir = 'Y:\Projects\EFPTest\Data_analysis\spm_analysis\firstlevel\ses-pre\task-efptest\taskrelated_activity';
 subdirs = dir([firstleveldir,filesep,'sub*']);
-maskdir = uigetdir(pwd,'Select directory containing binary brain mask files (*roi.mat)');
-% maskdir = 'Y:\Projects\EFPTest\Data_analysis\brain masks';
+% maskdir = uigetdir(pwd,'Select directory containing binary brain mask files (*roi.mat)');
+maskdir = 'Y:\Projects\EFPTest\Data_analysis\brain masks';
 
 %%
 if ~isempty(subdirs)
@@ -39,6 +39,8 @@ if ~isempty(subdirs)
     fir_tc_file = fopen(filename,'w');
     filename = fullfile(firstleveldir,['ROI-fitted-timecourse_mask-',maskfile(1:dum),'txt']);
     fitted_tc_file = fopen(filename,'w');
+    filename = fullfile(firstleveldir,'readme.txt');
+    readme_file = fopen(filename,'w');
     
     %% Iterate through subjects
     for sub = 1:length(subdirs)
@@ -51,15 +53,11 @@ if ~isempty(subdirs)
                     fprintf('An error occured. Directory may not be consistent with BIDS.\n')
                     return
                 end
-            end
-            
-            % Duration for which FIRs should be estimated (in seconds)
-            fir_length = 24;
-            
-            % Duration of stimulus events (in seconds)
-            e_length = 1;
+            end            
             
             spm_name = fullfile(firstleveldir,subdirs(sub).name,'SPM.mat');
+            
+            spm_data = load(spm_name); % load spm to get stimulus timings
             
             %% Get contrast values (from marsbar manual: http://marsbar.sourceforge.net/index.html)
             fprintf('Get contrast values.\n')
@@ -82,31 +80,26 @@ if ~isempty(subdirs)
             marsS = compute_contrasts(E, 1:length(xCon));
             
             %% Extract percent signal change (from marsbar manual)
-            fprintf('Extract percent signal change.\n')
-            %% What "events" are returned below???
+            fprintf('Extract percent signal change and estimate event-related timecourses.\n')
             [e_specs, e_names] = event_specs(D);
             n_events = size(e_specs, 2);
-            dur = 0;
-            % Return percent signal esimate for all events in design
-            for e_s = 1:n_events
-                pct_ev(e_s) = event_signal(E, e_specs(:,e_s), dur);
+            
+            bin_size = tr(E)*2; % Bin size in seconds for FIR            
+            opts = struct('single', 1, 'percent', 1); % Options - here �single� FIR model, return estimated % signal change
+            
+            for d_s = 1:n_events
+                alldur(d_s) = mean(spm_data.SPM.Sess.U(:,1).dur); % Caution: assuming that all events of a condition have similar duration
             end
             
-            %% Estimate FIR timecourses (marsbar manual) and fitted responses (CP)
-            fprintf('Estimate event-related timecourses.\n')
-            %% If your events have the same name across sessions, and you want to average across the events with the same name (if not, refer to manual for alternative code):
-            % Get compound event types structure
-            ets = event_types_named(E);
-            n_event_types = length(ets);
-            % Bin size in seconds for FIR
-            bin_size = tr(E);
-            % Number of FIR time bins to cover length of FIR
-            bin_no = fir_length / bin_size;
-            % Options - here �single� FIR model, return estimated % signal change
-            opts = struct('single', 1, 'percent', 1);
-            for e_t = 1:n_event_types
-                fir_tc(:, e_t) = event_fitted_fir(E, ets(e_t).e_spec, bin_size, bin_no, opts);
-                fitted_tc(:,e_t) = event_fitted(E,ets(e_t).e_spec,e_length);
+            dur = max(alldur)+12; % set duration to sample timecourses to maximum length needed. Add 12 s post stimulus offset            
+            
+            for e_s = 1:n_events
+                
+                pct_ev(e_s) = event_signal(E, e_specs(:,e_s), dur); % Extract percent signal change
+                
+                bin_no = round(dur / bin_size); % Number of FIR time bins to cover length of FIR
+                fir_tc(:, e_s) = event_fitted_fir(E, e_specs(:,e_s), bin_size, bin_no, opts); % FIR timecourse
+                fitted_tc(:,e_s) = event_fitted(E,e_specs(:,e_s),dur); % Fitted timecourse
             end
             
             %% Write tables (CP)
@@ -143,16 +136,16 @@ if ~isempty(subdirs)
             fprintf(psc_file,psc_format,subdirs(sub).name(1:dum1-1),pct_ev);
             
             % write timecourse data to dummy matrix
-            for e_t=1:n_event_types
+            for e_t=1:n_events
                 fir_tc_dum{pos}.tcs(e_t,:)=fir_tc(:,e_t); % timecourse data
-                fir_tc_dum{pos}.conditions{e_t}=ets(e_t).name; % get condition label
-                fir_tc_dum{pos}.vp=subdirs(sub).name;
+                fir_tc_dum{pos}.conditions(e_t)=e_names(e_t); % get condition label
+                fir_tc_dum{pos}.vp=subdirs(sub).name(1:dum1-1);
                 fitted_tc_dum{pos}.tcs(e_t,:)=fitted_tc(:,e_t); % timecourse data
-                fitted_tc_dum{pos}.conditions{e_t}=ets(e_t).name; % get condition label
-                fitted_tc_dum{pos}.vp=subdirs(sub).name;
+                fitted_tc_dum{pos}.conditions(e_t)=e_names(e_t); % get condition label
+                fitted_tc_dum{pos}.vp=subdirs(sub).name(1:dum1-1);
             end
             
-            clear('D','R','Y','E','xCon','b','marsS','bin_size','opts','fir_tc','fitted_tc','pct_ev','nr_cons','nr_betas');
+            clear('D','R','Y','E','xCon','b','marsS','opts','fir_tc','fitted_tc','pct_ev','nr_cons','nr_betas');
 
             % prepare header for timecourse output files
             fprintf(fir_tc_file,'%s\t%s','subject','condition_label');
@@ -171,7 +164,7 @@ if ~isempty(subdirs)
             fitted_tc_format=['\n%s\t%s',repmat('\t%6.4f',1,n_lines)];
             
             % print timecourse data to output file
-            for e_t=1:n_event_types
+            for e_t=1:n_events
                 for j=1:pos
                     fprintf(fir_tc_file,fir_tc_format,subdirs(sub).name(1:dum1-1),fir_tc_dum{j}.conditions{e_t},fir_tc_dum{j}.tcs(e_t,:));
                     fprintf(fitted_tc_file,fitted_tc_format,subdirs(sub).name(1:dum1-1),fitted_tc_dum{j}.conditions{e_t},fitted_tc_dum{j}.tcs(e_t,:));
@@ -189,5 +182,15 @@ if ~isempty(subdirs)
     fclose(psc_file);
     fclose(fir_tc_file);
     fclose(fitted_tc_file);
+    
+    title = 'Data in ROI txt files produced with marsbar-0.4.4';
+    ref_lit = 'Matthew Brett, Jean-Luc Anton, Romain Valabregue, Jean-Baptiste Poline. Region of interest analysis using an SPM toolbox [abstract] Presented at the 8th International Conference on Functional Mapping of the Human Brain, June 2-6, 2002, Sendai, Japan. Available on CD-ROM in NeuroImage, Vol 16, No 2.';
+    ref_web = 'ROI-percent-BOLD-signal-change txt file: To learn how percent signal change was calculated see http://marsbar.sourceforge.net/index.html';
+    fir_met = ['ROI-FIR-timecourse txt file: Timecourse was modeled with a Finite Impulse Response (FIR) function, start is stimulus onset, with bin size ',int2str(bin_size),' s (per unit on x-axis) and duration of ',int2str(dur),' s. Note that bin size and duration correspond to parameters of the last subject and may differ for other subjects.'];
+    fit_met = ['ROI-fitted-timecourse txt file: Timecourse was modeled with the HRF, start is stimulus onset, with duration of ',int2str(dur),' s.'];
+    ref_rabids = 'Extraction of data was run with an in-house matlab script called ROIanalysis_1_extract.m, available via https://github.com/christianparet/RaBIDS in the auxiliary tools directory.';
+    
+    fprintf(readme_file,'%s\n\n%s\n%s\n%s\n\n%s\n%s\n%s',title, ref_web,fir_met,fit_met,'References:',ref_lit,ref_rabids);
+    fclose(readme_file);
 end
 rmpath(genpath(folder));
