@@ -41,7 +41,18 @@ for i=1:length(derivd)
     fprintf([num2str(i),') ',derivd(i).name,'\n'])
 end
 
-selectd = input('Enter number of derivative directory to work on and press enter.\n');
+try
+    [c,~] = size(derivd);
+catch
+    fprintf('Cannot read derivatives directory.\n')
+    return
+end
+
+if c > 1
+    selectd = input('Enter number of derivative directory to work on and press enter.\n');
+else
+    selectd = 1;
+end
 derivd = [data_analysis_path,filesep,'derivatives',filesep,derivd(selectd).name];
 
 % in case of nested structure: account for 2 layers of fmriprep directories
@@ -101,21 +112,6 @@ for subject = 3%1:length(allsubs)
                     spm_ok = 0;
                 end
                 
-                % Does a smoothed derivative image exist?
-                derivname = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_*desc-preproc_desc-s',smkernel,'_bold.nii'];
-                derivp = fullfile(derivd,allsubs(subject).name,allses(session).name,'func',derivname);
-                derivnii = dir(derivp);
-                if length(derivnii) == 1
-                    fprintf(['Use derivative file ',derivnii.name,'.\n']);
-                    deriv_ok = 1;
-                elseif isempty(derivnii)
-                    fprintf('Derivative image not found. Skip session.\n');
-                    deriv_ok = 0;
-                else
-                    fprintf('Too many matching derivative files. Skip session.\n');
-                    deriv_ok = 0;
-                end
-                
                 % Does the nuisance regressor file exist?
                 multiregf = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_desc-confounds_timeseries_desc-realignment_regressors.mat'];
                 multiregp = fullfile(derivd,allsubs(subject).name,allses(session).name,'func',multiregf);
@@ -136,7 +132,22 @@ for subject = 3%1:length(allsubs)
                     multicond_ok = 0;
                 end
                 
-                if spm_ok && deriv_ok && multireg_ok && multicond_ok
+                % Does a smoothed derivative image exist?
+                derivname = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_*desc-preproc_desc-s',smkernel,'_bold.nii'];
+                derivp = fullfile(derivd,allsubs(subject).name,allses(session).name,'func',derivname);
+                derivnii = dir(derivp);
+                if length(derivnii) == 1
+                    fprintf(['Found derivative file ',derivnii.name,'.\n']);
+                    deriv_ok = 1;
+                elseif isempty(derivnii)
+                    fprintf('Derivative image not found. Skip session.\n');
+                    deriv_ok = 0;
+                else
+                    fprintf('Too many matching derivative files. Skip session.\n');
+                    deriv_ok = 0;
+                end
+                
+                if spm_ok && multireg_ok && multicond_ok && deriv_ok
                     %% Make and execute batch
                     % Define spm12 model
                     matlabbatch{1}.spm.stats.fmri_spec.dir = {firstlevelp};
