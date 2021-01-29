@@ -210,6 +210,11 @@ for i = 1:length(subj_list)
                 if strcmp(valid_series,'false')
                     fprintf(['No series for task ',task,' with number of volumes MinImages ',num2str(n_min),'-MaxImages ',num2str(n_max),' found.\nError #8.\n\n'])
                 else
+                    pos = strfind(scanprotocol.name{useseries},'-');
+                    if pos
+                        scanprotocol.name{useseries}(pos) = '_';
+                    end
+                    
                     if strcmp(task,'anat')
                         out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,data_analysis_path,useseries,scanprotocol.name{useseries},addsub,overwrite);
                     elseif contains(task,'fieldmap')
