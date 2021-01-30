@@ -68,9 +68,7 @@ for sub = 1:length(allsubs)
                             dum2 = strfind(jsonf.IntendedFor{bold},'_bold');
                             IFtaskid{bold} = jsonf.IntendedFor{bold}(dum1+5:dum2-1);
                         end
-                        
-                        jsonf = rmfield(jsonf,{'IntendedFor'});
-                        
+                                                
                         % read existing tasks for this session from func directory
                         existtaskid = cell(1); % initiate variable
                         boldjson = dir([sesd,filesep,'func',filesep,allsubs(sub).name,'_',allses(ses).name,'_task-*_bold.json']);
@@ -85,7 +83,10 @@ for sub = 1:length(allsubs)
                             
                             if length(IFtaskid)>length(existtaskid)
                                 
-                                % write existing tasks to fmap json
+                                % clear IntendedFor field...
+                                jsonf = rmfield(jsonf,{'IntendedFor'});
+                                
+                                % ... and write existing tasks to fmap json
                                 usetaskid = intersect(existtaskid,IFtaskid);
                                 
                                 if ~isempty(usetaskid)
