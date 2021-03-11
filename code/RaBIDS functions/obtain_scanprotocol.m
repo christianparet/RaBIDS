@@ -29,7 +29,7 @@ data_dir =  'dataset';
 dum=1;
 
 if strcmp(HowExpectDicoms,'allinone')
-        dicomd = [data_analysis_path,filesep,dicomdir];
+        dicomd = dicomdir;
 elseif strcmp(HowExpectDicoms,'BIDS')
     if strcmp(ses_id,'none')
         dicomd = [dicomdir,filesep,subject];

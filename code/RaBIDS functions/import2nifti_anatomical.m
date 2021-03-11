@@ -1,5 +1,5 @@
 function out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subject,suff,ses_id,study_identifier,data_analysis_path,series,series_n,addsub,overwrite)
-% v0.2.1 release
+% v0.2.2 release
 
 % Uses dicm2nii toolbox to import dicom-images to nifti-format
 % Folder structure in BIDS format is produced, for more information see: Gorgolewski, K. J. et al., Sci. Data 3:160044, doi: 10.1038/sdata.2016.44 (2016)
@@ -31,7 +31,7 @@ data_dir =  'dataset';
 dum = 1;
 
 if strcmp(HowExpectDicoms,'allinone')
-        dicomd = [data_analysis_path,filesep,dicomdir];
+        dicomd = dicomdir;
 elseif strcmp(HowExpectDicoms,'BIDS')
     if strcmp(ses_id,'none')
         dicomd = [dicomdir,filesep,subject];

@@ -49,13 +49,8 @@ data_analysis_path = data{DataAnalysisPathline,userInputcol}{:};
 
 Dicomsline = find(strcmp(data.Properties.RowNames,'dicoms'));
 HowExpectDicoms = data{Dicomsline,userInputcol}{:};
-switch HowExpectDicoms
-    case 'BIDS'
-        ExchangeServerPathline = find(strcmp(data.Properties.RowNames,'data exchange path'));
-        dicomdir = data{ExchangeServerPathline,userInputcol}{:};
-    case 'allinone'
-        dicomdir =  'dicomdir';
-end
+ExchangeServerPathline = find(strcmp(data.Properties.RowNames,'data exchange path'));
+dicomdir = data{ExchangeServerPathline,userInputcol}{:};
 
 dum = find(contains(data.Properties.RowNames,'subject info'));
 for i = 1:length(dum)

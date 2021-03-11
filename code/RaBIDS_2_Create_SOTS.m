@@ -1,13 +1,14 @@
 %% RaBIDS - Rapid analysis with BIDS
-% v0.2.1 release
+% v0.2.2 release
 
 %% Create SOTS
-% Chris Paret, ZI Mannheim, 2019-2020; christian.paret@zi-mannheim.de
+% Chris Paret, ZI Mannheim, 2019-2021; christian.paret@zi-mannheim.de
 % This program preprocesses and (first-level-) analyzes fMRI data
 % Run RaBIDS_Import first to create BIDS data structure
 % Edit datasheet and conditions_TASK.xlsx file (TASK = your task name); see explanation in file
 
-% Change log from v0.1/v0.2.0:
+% Change log from v0.1/v0.2:
+% - bugfix to enable create sots with the delete-option of initial MRI images being switched off
 % - save command window output to logfile directory
 % - datasheet variable naming convention changed
 % - sourcedata path from datasheet
@@ -54,10 +55,18 @@ else
 end
 
 first_imageline = find(strcmp(data.Properties.RowNames,'first image'));
-if contains(data{first_imageline,userInputcol}{:},'y')
-    first_image = data{first_imageline,minImagescol}; % X=1:[first_image-1] images are skipped and will be deleted from the dicom-directory
+first_image = data{first_imageline,minImagescol}; % this item identifies timepoint t0 based on pulse number
+if first_image > 1
+    fprintf(['Stimulus timings are defined relative to volume nr ', num2str(first_image),'.\n']);
 else 
-    first_image = 0;
+    first_image = 1;
+    fprintf('Stimulus timings are defined relative to the first volume available.\n');
+end
+
+if contains(data{first_imageline,userInputcol}{:},'y')
+    fprintf(['According to user input MRI images up to volume nr ',num2str(first_image),' have been deleted.\nStimulus timings should be in sync with your volumes.\n']);
+else
+    fprintf(['According to user input initial MRI images were not removed.\nIt will be critical to discard images up to volume nr ',num2str(first_image),' in firstlevel GLM analysis.\n']);
 end
 
 % Number of sessions and IDs
