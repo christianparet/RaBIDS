@@ -3,7 +3,10 @@
 % exist in a session prevent BIDS validation. RaBIDS v0.2 writes tasks to IntendedFor fields, regardless whether they exist or not.
 % Use this program to remove tasks that do not exist in a session.
 
-% Christian Paret, ZI Mannheim, 2020
+% Christian Paret, ZI Mannheim, 2020-2021
+%
+% Change log
+% 2021/03/22 removed bug for compatibility with datasets without session-sub-directories
 
 clear
 
@@ -45,21 +48,23 @@ for sub = 1:length(allsubs)
             clear IFtaskid existtaskid
             sesd = [subd,filesep,allses(ses).name];
             if nses == 1
-                fprintf('One scan session.\n')
+                fprintf('Single scan session.\n')
+                write_ses = '_';
             else
                 fprintf([allses(ses).name,'\n'])
+                write_ses = ['_',allses(ses).name,'_'];
             end
             
             if isfolder([sesd,filesep,'fmap'])
                 
-                fmapjson = dir([sesd,filesep,'fmap',filesep,allsubs(sub).name,'_',allses(ses).name,'_phasediff.json']);
+                fmapjson = dir([sesd,filesep,'fmap',filesep,allsubs(sub).name,write_ses,'phasediff.json']);
                 
                 if isempty(fmapjson)
                     fprintf('No json-sidecar found for fieldmap phasedifference image.\n');
                 else
                     
                     % decode fmap json file
-                    jsonfname = [sesd,filesep,'fmap',filesep,allsubs(sub).name,'_',allses(ses).name,'_phasediff.json'];
+                    jsonfname = [sesd,filesep,'fmap',filesep,allsubs(sub).name,write_ses,'phasediff.json'];
                     jsonf = jsondecode(fileread(jsonfname));
                     
                     if isfield(jsonf,{'IntendedFor'})
@@ -71,7 +76,7 @@ for sub = 1:length(allsubs)
                                                 
                         % read existing tasks for this session from func directory
                         existtaskid = cell(1); % initiate variable
-                        boldjson = dir([sesd,filesep,'func',filesep,allsubs(sub).name,'_',allses(ses).name,'_task-*_bold.json']);
+                        boldjson = dir([sesd,filesep,'func',filesep,allsubs(sub).name,write_ses,'task-*_bold.json']);
                         if isempty(boldjson)
                             fprintf('No json-sidecar found for bold scans. Fieldmap not intended for any task.\n');
                         else
@@ -92,9 +97,9 @@ for sub = 1:length(allsubs)
                                 if ~isempty(usetaskid)
                                     for bold = 1:length(usetaskid)
                                         if sesdir
-                                            jsonf.IntendedFor{bold,1} = [allses(ses).name,'/func/',allsubs(sub).name,'_',allses(ses).name,'_task-',usetaskid{bold},'_bold.nii.gz'];
+                                            jsonf.IntendedFor{bold,1} = [allses(ses).name,'/func/',allsubs(sub).name,write_ses,'task-',usetaskid{bold},'_bold.nii.gz'];
                                         else
-                                            jsonf.IntendedFor{bold,1} = ['func/',allsubs(sub).name,'_',allses(ses).name,'_task-',usetaskid{bold},'_bold.nii.gz'];
+                                            jsonf.IntendedFor{bold,1} = ['func/',allsubs(sub).name,write_ses,'task-',usetaskid{bold},'_bold.nii.gz'];
                                         end
                                     end
                                 end
