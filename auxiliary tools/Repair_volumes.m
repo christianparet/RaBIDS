@@ -28,6 +28,7 @@ fprintf('Repair volumes using ArtRepair.\n\n')
 %% Provide information about your imaging data here
 smkernel = '6'; % smoothing kernel of functional images; program looks for derivatives with this smoothing kernel
 use_trimmed = 1; % default = 1. program searches for a trimsession file in the derivatives directory with format <subject ID>_<session ID>_task-<task ID>_trimsession.mat. The file must have two entries pointing a start volume and a stop volume for trimming the session data.
+mv_threshold = 1.0 ; % recommendation from ArtRepair toolbox (see art_global header information): good data: 0.3, moderately noisy data: 0.5, severely noisy data: 1.0
 
 %% Set path to ArtRepair toolbox
 addpath('C:\Program Files\spm12\toolbox\ArtRepair')
@@ -184,7 +185,7 @@ for subject = 1:length(allsubs)
                         [pth,nam,ext] = spm_fileparts(fullfile(derivp,derivniif.name));
                         image = fullfile(pth,[nam,ext]); %'img.nii,1' -> 'img.nii'
                         hdr = spm_vol(image);
-                        fprintf('Reading 4d-nii volumes...\n')
+                        fprintf('   Reading 4d-nii volumes...\n')
                         img = spm_read_vols(hdr);
                         nvol = numel(hdr); 
                         
@@ -196,7 +197,7 @@ for subject = 1:length(allsubs)
                         end
                         
                         hdr = hdr(1);
-                        fprintf('Writing 3d-nii volumes to output directory...\n')
+                        fprintf('  Writing 3d-nii volumes to output directory...\n')
                         for vol = first_image : last_image % only import images that go into the glm
                             hdr.fname = fullfile(pth, [nam, '_', num2str(vol,'%04d'), ext]);
                             spm_write_vol(hdr,img(:, :, :, vol));
@@ -211,7 +212,11 @@ for subject = 1:length(allsubs)
                         % Make a copy of nuisance regressors that is readable with ArtRepair v5b
                         writematrix(R,[threedniip,filesep,'realignment_regressors'],'Delimiter','tab');
                         
-                        art_global(getscans,[threedniip,filesep,'realignment_regressors.txt'],4,1)
+                        % Repair scans using ArtRepair toolbox. Note:
+                        % art_global_mvthreshold is an adapted version of
+                        % art_global.m v 2.6, expecting mv_threshold as an
+                        % input
+                        art_global_mvthreshold(getscans, [threedniip,filesep,'realignment_regressors.txt'], 4, 2, mv_threshold) % second last input is RepairType: only repaired scans should be deweighted. This option should be used if motion regressors are used for nuisance regression in the firstlevel GLM estimation.
                         
                         % Remove the original, unrepaired 3d-niftis as they are no longer needed
                         originscans = dir(fullfile(threedniip, [nam, '_*']));
