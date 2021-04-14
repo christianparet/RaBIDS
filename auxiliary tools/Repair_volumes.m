@@ -148,9 +148,6 @@ for subject = 1:length(allsubs)
                     conf_ok = 1;
                     conf_table = readtable([derivp,filesep,conf_timeseriesf],'FileType','text','ReadRowNames',false,'PreserveVariableNames',true,'NumHeaderLines',0);
                     
-                    % Load nuisance regressors to a matrix called R
-                    R = [];
-                    
                     % Collect the realignment regressors in matrix R
                     R = [conf_table.trans_x, conf_table.trans_y, conf_table.trans_z, conf_table.rot_x, conf_table.rot_y, conf_table.rot_z];
                     
