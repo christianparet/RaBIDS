@@ -41,10 +41,10 @@ data_analysis_path = data{DataAnalysisPathline,userInputcol}{:};
 datasetd = [data_analysis_path,filesep,'dataset'];
 first_imageline = find(strcmp(data.Properties.RowNames,'first image'));
 if contains(data{first_imageline,userInputcol}{:},'y')
-    first_image = 1; % X=1:[first_image-1] images were deleted from the dicom-directory (the delete-mode will be removed in a future RaBIDS version and should not be used)
+    first_vol = 1; % X=1:[first_image-1] images were deleted from the dicom-directory (the delete-mode will be removed in a future RaBIDS version and should not be used)
     fprintf('Note: Program assumes that initial images have been deleted.\nFor more information see RaBIDS manual, ObjectType first image.\n\n')
 else
-    first_image = data{first_imageline,minImagescol}; % X=1:[first_image-1] images are skipped below
+    first_vol = data{first_imageline,minImagescol}; % X=1:[first_image-1] images are skipped below
     fprintf('Note: Program assumes that initial images have not been deleted.\nInitial volumes will be discarded and nuisance regressors will be cut accordingly.\nFor more information see RaBIDS manual, ObjectType first image.\n\n')
 end
 
@@ -123,14 +123,15 @@ for subject = 1:length(allsubs)
                 
                 %% Trim session?
                 trim = false; % set flag false as standard. Do now couple of checks to give detailed user feedback
+                start_vol = first_vol;
                 trimf = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_trimsession.mat'];
                 threedniip = fullfile(data_analysis_path,'spm_analysis','repaired_preprocessed_3dnii',allses(session).name,allsubs(subject).name,['task-',reqtask],'complete_session_data'); % Path to save repaired 3d-nii data
                 if use_trimmed && isfile(fullfile(derivp,trimf))
                     fprintf('Trimsession file found, importing trimmed session data.\n')
                     trim = true;
                     load([derivp,filesep,trimf]) % 1-by-2 vector with information of first/last scan to use; see script "find_spikes_and_trim_session.m"
-                    if first_image < trimses(1)
-                        first_image = trimses(1);
+                    if start_vol < trimses(1)
+                        start_vol = trimses(1);
                     end
                     threedniip = fullfile(data_analysis_path,'spm_analysis','repaired_preprocessed_3dnii',allses(session).name,allsubs(subject).name,['task-',reqtask],'trimmed_session_data'); % Path to save 3d-nii data
                 elseif use_trimmed && ~isfile(fullfile(derivp,trimf))
@@ -155,9 +156,9 @@ for subject = 1:length(allsubs)
                     
                     % discard initial volumes and trim session data if needed
                     if trim
-                        R = R(first_image:trimses(2),:);
+                        R = R(start_vol:trimses(2),:);
                     else
-                        R = R(first_image:end,:);
+                        R = R(start_vol:end,:);
                     end
                         
                 else
@@ -170,7 +171,7 @@ for subject = 1:length(allsubs)
                     
                     %% Check whether repaired 3d-nii data exists (note: ArtRepair v5b is incompatible with 4d-nifti data)
                     pos = strfind(derivniif.name,'_bold');
-                    threedniif = dir(fullfile(threedniip,['v',derivniif.name(1:pos),'bold_0001.nii']));
+                    threedniif = dir(fullfile(threedniip,['v',derivniif.name(1:pos),'bold_',num2str(start_vol,'%.4d'),'.nii']));
                     if length(threedniif) == 1
                         fprintf('Found at least one repaired volume in target directory. Skip Session.\n');
                     else
@@ -191,14 +192,14 @@ for subject = 1:length(allsubs)
                         
                         % in case the session is to be trimmed we will only import images as set in trimsession file
                         if trim
-                            last_image = trimses(2);
+                            stop_vol = trimses(2);
                         else
-                            last_image = nvol;
+                            stop_vol = nvol;
                         end
                         
                         hdr = hdr(1);
-                        fprintf('  Writing 3d-nii volumes to output directory...\n')
-                        for vol = first_image : last_image % only import images that go into the glm
+                        fprintf('   Writing 3d-nii volumes to output directory...\n')
+                        for vol = start_vol : stop_vol % only import images that go into the glm
                             hdr.fname = fullfile(pth, [nam, '_', num2str(vol,'%04d'), ext]);
                             spm_write_vol(hdr,img(:, :, :, vol));
                             movefile(fullfile(pth, [nam, '_', num2str(vol,'%04d'), ext]),fullfile(threedniip, [nam, '_', num2str(vol,'%04d'), ext]))
