@@ -154,7 +154,6 @@ for subject = 1:length(allsubs)
                             if get_outlier
                                 % motion outlier "spike" regressors
                                 outliercol = find(contains(conf_table.Properties.VariableNames,'motion_outlier'));
-                                
                                 for col = 1:length(outliercol) % this loop iterates through the motion_outlier colomns and concatenates R
                                     eval(['R = [R, conf_table.',conf_table.Properties.VariableNames{outliercol(col)},'];']);
                                 end
@@ -171,7 +170,7 @@ for subject = 1:length(allsubs)
                 
                 % Check for trimsession file and define directory to write first-level SPM.mat
                 firstleveld = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask];
-                firstlevelp = fullfile(data_analysis_path,'spm_analysis','firstlevel',allses(session).name,['task-',reqtask],'taskrelated_activity');
+                firstlevelp = fullfile(data_analysis_path,'spm_analysis','firstlevel',allses(session).name,['task-',reqtask],'taskrelated_standard');
                 trimf = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_trimsession.mat'];
                 trim = false; % set flag false as standard. Do now couple of checks to give detailed user feedback:
                 

@@ -1,3 +1,4 @@
+
 %% art_redo_wrapper
 % art_redo program, modified by Christian Paret, ZI-Mannheim, 2021/04/07
 
@@ -13,9 +14,9 @@ clear
 % Specify name of directories to look for data and to save it. The data structure arises from the RaBIDS pipeline and the Repair_volumes.m program
 spm_analysis_dir = 'Y:\Projects\EFPTest\Data_analysis\spm_analysis';
 threednii =  'repaired_preprocessed_3dnii'; % path to repaired data
-sesdir = 'ses-pre';
-taskdir = 'task-efptest';
-taskspecdir = 'taskrelated_activity'; % das muss unten noch in den Pfaden korrigiert werden!
+sesdir = 'ses-post';
+taskdir = 'task-updown';
+taskspecdir = 'taskrelated_FeedbackMonitoring'; 
 % subdirectories of threednii directory are structured:
 % <spm_analysis_dir>/<threednii>/<sesdir>/<subjectID>/<taskdir>/...
 
@@ -78,9 +79,12 @@ addpath('C:\Program Files\spm12\toolbox\ArtRepair')
 % List all folders in directory <curr dir>\regular and use art_redo on content, by CP 2021/04/06
 allsubs = dir(fullfile(spm_analysis_dir,'firstlevel',sesdir,taskdir,taskspecdir,'regular','sub-*'));
 
-for sub = 1:length(allsubs)
+subcount = 1;
+
+for sub = 30:32%1:length(allsubs)
     goahead = 1;
     fprintf(['\nProcessing ',allsubs(sub).name,'\n'])
+    
     
     % find subject string and write it in varialbe subID
     pos = strfind(allsubs(sub).name,'_ses-');
@@ -89,6 +93,7 @@ for sub = 1:length(allsubs)
     repfirstlevel = fullfile(spm_analysis_dir,'firstlevel',sesdir,taskdir,taskspecdir,'repaired'); % this is the directory where we write the repaired firstlevel model to
     origSPMpath = fullfile(spm_analysis_dir,'firstlevel',sesdir,taskdir,taskspecdir,'regular',allsubs(sub).name); % this is the directory containing the original model (SPM.mat) that art_redo should use to re-estimate with repaired volumes
     repdata = fullfile(spm_analysis_dir,threednii,sesdir,subID,taskdir,'complete_session_data'); % directory containing the repaired 3d-nii data
+    
     % change repaired-firstlevel directory if repaired + trimmed 3d-nii data exist
     if trim
         trimdata = fullfile(spm_analysis_dir,threednii,sesdir,subID,taskdir,'trimmed_session_data');
@@ -98,6 +103,7 @@ for sub = 1:length(allsubs)
             origSPMpath = fullfile(spm_analysis_dir,'firstlevel',sesdir,taskdir,taskspecdir,'trimmed_regular',allsubs(sub).name);
             fprintf('Found trimmed + repaired data.\n');
             repdata = trimdata; % use trimmed data instead of complete session data
+            session_data(subcount,:) = 'trimmed-';
         elseif exist(repdata,'dir')
             fprintf('Use complete repaired session data.\n')
         else
@@ -115,27 +121,29 @@ for sub = 1:length(allsubs)
     
     if exist(fullfile(origSPMpath,'SPM.mat'),'file')
         fprintf('Found original firstlevel SPM.\n')
+        spm_available = 1;
         
-        % Check for file containing quality metrics and if it does not exist yet, produce it
-        if ~exist(fullfile(origSPMpath,'GlobalQuality.txt'),'file')
+        datafile_ID(subcount,:) = allsubs(sub).name;
+        session_data(subcount,:) = 'complete';
             
-            % Define scale factors to be passed to art_summary (I re-used code found in the art_summary function
-            imgmask = fullfile(origSPMpath,'mask.nii');
-            ScaleFactors = art_percentscale(fullfile(origSPMpath,'con_0001.nii'),imgmask);
-            peak_value = ScaleFactors(1);
-            contrast_value = ScaleFactors(2);
-            bmean = ScaleFactors(3);            
-            
-            art_summary(fullfile(origSPMpath,'con_0001.nii'),imgmask,origSPMpath,allsubs(sub).name,1,ScaleFactors);
-            h(1) = figure(1);
-            h(2) = figure(2);
-            savefig(h,fullfile(origSPMpath,'ResidualPlots.fig'))
-            close(h)
-        end
+        % Define scale factors to be passed to art_summary (I re-used code found in the art_summary function
+        imgmask = fullfile(origSPMpath,'mask.nii');
+        ScaleFactors = art_percentscale(fullfile(origSPMpath,'con_0001.nii'),imgmask);
+        peak_value = ScaleFactors(1);
+        contrast_value = ScaleFactors(2);
+        bmean = ScaleFactors(3);            
+
+        [StdEstimationError_origSPM(subcount,:),MeanEstimationError_origSPM(subcount,:),ResMSerror_origSPM(subcount,:)] = art_summary(fullfile(origSPMpath,'con_0001.nii'),imgmask,origSPMpath,allsubs(sub).name,1,ScaleFactors);
+        h(1) = figure(1);
+        h(2) = figure(2);
+        savefig(h,fullfile(origSPMpath,'ResidualPlots.fig'))
+        close(h)
+        
         
     else
         fprintf('Original firstlevel SPM not found. Skip session.\n')
         goahead = 0;
+        spm_available = 0;
     end
     
     if exist(fullfile(repfirstlevel,allsubs(sub).name),'dir')
@@ -143,53 +151,56 @@ for sub = 1:length(allsubs)
             fprintf('Model has already been estimated with repaired data. Skip session.\n')
             goahead = 0;
             
-            % Check for file containing quality metrics and if it does not exist yet, produce it
-            if ~exist(fullfile(repfirstlevel,allsubs(sub).name,'GlobalQuality.txt'),'file')
+            % Define scale factors to be passed to art_summary (I re-used code found in the art_summary function
+            imgmask = fullfile(origSPMpath,'mask.nii'); % use the same mask as was used for original SPM
+            ScaleFactors = art_percentscale(fullfile(repfirstlevel,allsubs(sub).name,'con_0001.nii'),imgmask);
+            peak_value = ScaleFactors(1);
+            contrast_value = ScaleFactors(2);
+            bmean = ScaleFactors(3);            
 
-                % Define scale factors to be passed to art_summary (I re-used code found in the art_summary function
-                imgmask = fullfile(origSPMpath,'mask.nii'); % use the same mask as was used for original SPM
-                ScaleFactors = art_percentscale(fullfile(repfirstlevel,allsubs(sub).name,'con_0001.nii'),imgmask);
-                peak_value = ScaleFactors(1);
-                contrast_value = ScaleFactors(2);
-                bmean = ScaleFactors(3);            
+            [StdEstimationError_redoSPM(subcount,:),MeanEstimationError_redoSPM(subcount,:),ResMSerror_redoSPM(subcount,:)] = art_summary(fullfile(repfirstlevel,allsubs(sub).name,'con_0001.nii'),imgmask,fullfile(repfirstlevel,allsubs(sub).name),allsubs(sub).name,1,ScaleFactors);
 
-                art_summary(fullfile(repfirstlevel,allsubs(sub).name,'con_0001.nii'),imgmask,fullfile(repfirstlevel,allsubs(sub).name),allsubs(sub).name,1,ScaleFactors);
-
-                h(1) = figure(1);
-                h(2) = figure(2);
-                savefig(h,fullfile(repfirstlevel,allsubs(sub).name,'ResidualPlots.fig'))
-                close(h)
-            end
+            h(1) = figure(1);
+            h(2) = figure(2);
+            savefig(h,fullfile(repfirstlevel,allsubs(sub).name,'ResidualPlots.fig'))
+            close(h)
+            
         end        
         
     else
         mkdir(fullfile(repfirstlevel,allsubs(sub).name))
     end
     
-    if goahead
-        
+    if spm_available % introduced by CP, 2021/04/06
+    
         % Get the existing SPM file
+
         %     if strcmp(spm_ver,'spm5') % Commented out by CP, 2021/04/06
         %         origSPM   = spm_select(1,'mat','Select SPM design to re-estimate'); % Commented out by CP, 2021/04/06
         %         RepairResults = spm_select(1,'dir','Select folder for Repaired Results'); % Commented out by CP, 2021/04/06
-        
+
         origSPM   = spm_select('FPList',origSPMpath,'SPM.mat'); % by CP, 2021/04/06
         RepairResults = spm_select('FPList',repfirstlevel,'dir',allsubs(sub).name); % by CP, 2021/04/06
-        
+
         %     else % Commented out by CP, 2021/04/06
         %         origSPM = spm_get(1, 'SPM.mat', 'Select SPM design to re-estimate'); % Commented out by CP, 2021/04/06
         %         RepairResults = spm_get(-1,'*','Select folder for Repaired Results'); % Commented out by CP, 2021/04/06
         %     end % Commented out by CP, 2021/04/06
-        
+
         dirSPM = fileparts(origSPM);
-        cd(dirSPM);
-        load SPM;
-        num_sess = size(SPM.Sess,2);  % size(SPM.nscan,2) % Commented out by CP, 2021/04/06
-		if num_sess > 1
-			fprintf('CAVE: The wrapper has not been designed for multiple sessions. You should use the regular GUI instead.\n')
-		end
+        %     cd(dirSPM); % Commented out by CP, 2021/04/06
+        load(fullfile(origSPMpath,'SPM'))
+        num_sess = size(SPM.Sess,2);  % size(SPM.nscan,2)
+
+        if num_sess > 1
+            fprintf('CAVE: The wrapper has not been designed for multiple sessions. You should use the regular GUI interface instead, i.e., call art_redo via command window.\n')
+        end
+
         % images for all sessions are in  SPM.xY.P, size of session is SPM.nscan(i)
         session_size = SPM.nscan(1);   % assumed all sessions are the same length.
+    end
+    
+    if goahead % introduced by CP, 2021/04/06
         
         % SELECT A NEW FOLDER FOR REPAIRED RESULTS
         SPM.swd = RepairResults;
@@ -201,16 +212,16 @@ for sub = 1:length(allsubs)
         if AutoRepair == 0
             % (Preferable if program automatically checked for necessary v-files.)
             % Update each session with existing v file data.
-%             nwd=cd(fileparts(SPM.xY.P(1,:))); % fails if upper paths changed.
-%             for j=1:num_sess % Commented out by CP, 2021/04/06
+            %             nwd=cd(fileparts(SPM.xY.P(1,:))); % fails if upper paths changed.
+            %             for j=1:num_sess % Commented out by CP, 2021/04/06
             %             askstring = ['Select repaired images for session ' num2str(j) ]; % Commented out by CP, 2021/04/06
             %             if strcmp(spm_ver,'spm5') % Commented out by CP, 2021/04/06
             %                 Pnew{j}   = spm_select(Inf,'image', askstring,[],dirSPM,'^v.*' ); % Commented out by CP, 2021/04/06
             %             else % Commented out by CP, 2021/04/06
             %                 Pnew{j}   = spm_get(Inf,'v*img', askstring, nwd );  % for SPM2 % Commented out by CP, 2021/04/06
             %             end % Commented out by CP, 2021/04/06
-                Pnew{1}   = spm_select('FPList',repdata,'^v.*' ); % by CP, 2021/04/06
-%             end % Commented out by CP, 2021/04/06
+            Pnew{1}   = spm_select('FPList',repdata,'^v.*' ); % by CP, 2021/04/06
+            %             end % Commented out by CP, 2021/04/06
             scans = [];
             for i = 1:num_sess
                 scans = [ scans; Pnew{i} ];
@@ -328,15 +339,46 @@ for sub = 1:length(allsubs)
         ScaleFactors = art_percentscale(fullfile(repfirstlevel,allsubs(sub).name,'con_0001.nii'),imgmask);
         peak_value = ScaleFactors(1);
         contrast_value = ScaleFactors(2);
-        bmean = ScaleFactors(3);            
-
-        art_summary(fullfile(repfirstlevel,allsubs(sub).name,'con_0001.nii'),imgmask,fullfile(repfirstlevel,allsubs(sub).name),allsubs(sub).name,1,ScaleFactors);
-
+        bmean = ScaleFactors(3);
+        
+        [StdEstimationError_redoSPM(subcount,:),MeanEstimationError_redoSPM(subcount,:),ResMSerror_redoSPM(subcount,:)] = art_summary(fullfile(repfirstlevel,allsubs(sub).name,'con_0001.nii'),imgmask,fullfile(repfirstlevel,allsubs(sub).name),allsubs(sub).name,1,ScaleFactors);
+        
         h(1) = figure(1);
         h(2) = figure(2);
         savefig(h,fullfile(repfirstlevel,allsubs(sub).name,'ResidualPlots.fig'))
         close(h)
     end
+    
+    if spm_available % introduced by CP, 2021/06/04
+    
+        % Collect parameters to characterize improvement
+        deweightlist = fullfile(repdata,'art_deweighted.txt');
+        outindex = load(deweightlist);
+        DeweightedScans_n(subcount,:) = length(outindex);
+        DeweightedScans_percent(subcount,:) = round (length(outindex) / session_size * 100 , 2);
+
+        repairedlist = fullfile(repdata,'art_repaired.txt');
+        outindex = load(repairedlist);
+        RepairedScans_n(subcount,:) = length(outindex);
+        RepairedScans_percent(subcount,:) = round (length(outindex) / session_size * 100 ,2);
+        
+        subcount = subcount + 1;
+    end
 end
 
+% Calculate percent improvement
+StdEstimationError_improvement_percent = round ((StdEstimationError_origSPM - StdEstimationError_redoSPM) ./ StdEstimationError_origSPM * 100 , 2);
+ResMSerror_improvement_percent = round ((ResMSerror_origSPM - ResMSerror_redoSPM) ./ ResMSerror_origSPM * 100 , 2);
 
+% Round statistics
+MeanEstimationError_origSPM = round (MeanEstimationError_origSPM,3);
+MeanEstimationError_redoSPM = round (MeanEstimationError_redoSPM,3);
+StdEstimationError_origSPM = round(StdEstimationError_origSPM,3);
+StdEstimationError_redoSPM = round(StdEstimationError_redoSPM,3);
+ResMSerror_origSPM = round(ResMSerror_origSPM,3);
+ResMSerror_redoSPM = round(ResMSerror_redoSPM,3);
+
+% Save to summary table
+GQsumdir = fullfile(spm_analysis_dir,'firstlevel',sesdir,taskdir,taskspecdir,'GlobalQuality_overview.txt');
+datatable = table(datafile_ID,session_data,StdEstimationError_improvement_percent,ResMSerror_improvement_percent,RepairedScans_percent,DeweightedScans_percent,RepairedScans_n,DeweightedScans_n,MeanEstimationError_origSPM,StdEstimationError_origSPM,MeanEstimationError_redoSPM,StdEstimationError_redoSPM,ResMSerror_origSPM,ResMSerror_redoSPM);
+writetable(datatable,GQsumdir,'Delimiter','tab');
