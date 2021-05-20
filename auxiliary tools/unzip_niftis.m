@@ -3,6 +3,12 @@
 
 % Download this program into your dataset/code directory to run
 
+%% Changelog
+
+% 2021/05/20 fixed bug to handle datasets without session-subdirectories
+% (i.e., with subject directories having func directories on next lower
+% hierarchy.
+
 %% Read data from datasheet
 data = readtable('datasheet.xlsx','ReadRowNames',true,'PreserveVariableNames',true,'NumHeaderLines',0);
 
@@ -54,36 +60,39 @@ for sub = 1:length(allsubs)
         
         fprintf([allsubs(sub).name,'\n'])
         
-        try
-            allses = dir([subd,filesep,'ses-*']);
-            
-            for ses = 1:length(allses)
-                sesd = [subd,filesep,allses(ses).name];
+        allses = dir([subd,filesep,'ses-*']);        
+        nses = length(allses);
+        if nses < 1 % Account for datasets that do not have ses subdirectory
+            nses = 1;
+            sesid = false;
+        else
+            sesid = true;
+        end
+        
+        for ses = 1:nses
+            if sesid
+                sesdir = [subd,filesep,allses(ses).name];
                 fprintf([allses(ses).name,'\n'])
-                
-                if isfolder([sesd,filesep,'func'])
-                    zippednii = dir([sesd,filesep,'func',filesep,'sub-*-preproc_bold.nii.gz']);
-                    
-                    for funcs = 1:length(zippednii)
-                        gunzip([sesd,filesep,'func',filesep,zippednii(funcs).name])
-                        delete([sesd,filesep,'func',filesep,zippednii(funcs).name])
-                        fprintf(['Unzipped ',zippednii(funcs).name,', deleted zipped nii.\n'])
-                    end
-                else
-                    fprintf('No func directory found.\n');
-                end
+            else
+                sesdir = subd;
             end
-        catch
-            if isfolder([subd,filesep,'func'])
-                zippednii = dir([subd,filesep,'func',filesep,'sub-*-preproc_bold.nii.gz']);
+            
+            if isfolder([sesdir,filesep,'func'])
+                zippednii = dir([sesdir,filesep,'func',filesep,'sub-*-preproc_bold.nii.gz']);
                 
-                for funcs = 1:length(zippednii)
-                    gunzip([subd,filesep,'func',filesep,zippednii(funcs).name])
-                    delete([sesd,filesep,'func',filesep,zippednii(funcs).name])
-                    fprintf(['Unzipped ',zippednii(funcs).name,', deleted zipped nii.\n'])
+                if isempty(zippednii)
+                    fprintf('No zipped images found.\n')
+                else
+                    for funcs = 1:length(zippednii)
+                        fprintf(['Unzipping ',zippednii(funcs).name,'...\n'])
+                        gunzip([sesdir,filesep,'func',filesep,zippednii(funcs).name])
+                        fprintf('Unzip successful, deleting zipped nii...\n')
+                        delete([sesdir,filesep,'func',filesep,zippednii(funcs).name])
+                        fprintf('Success!\n')
+                    end
                 end
             else
-                fprintf('No func directory found.\n');
+                fprintf('No func directory found.\n')
             end
         end
     end

@@ -7,7 +7,21 @@
 % You should provide a (unzipped) smoothed, preprocessed image in the derivatives directory. Use the "SPManalysis_1_smooth_images.m" program (see RaBIDS\auxiliary tools); it will automatically provide the images in the needed naming format.
 %
 % Download program to dataset/code directory to run
+
+%% Changelog
+
+% 2021/05/20 Fixed bug to handle datasets without session-subdirectories
+% (i.e., with subject directories having func directories on next lower
+% hierarchy. Fixed bug that returned error when processing data where
+% initial images (accounting for T1-effects) were not deleted.
+% The name of the directory listing the firstlevel subject-directories was
+% changed from 'regular' to 'original' to indicate that original MRI 
+% volumes were used (in contrast to repaired volumes as they can be 
+% received by running ArtRepair). 
+% Naming convention for taskrelated BOLD analysis was changed from
+% 'taskrelated_standard' back to 'taskrelated_activity'
 %%
+
 clear
 clc
 
@@ -15,7 +29,7 @@ clc
 smkernel = '6'; % smoothing kernel of functional images
 TR = 2; % Repetition Time
 slices = 36; % number of slices per volume
-use_trimmed = true; % use trimmed session data, if it exists? If set true, the program will trim session data according to definition with program find_spikes_and_trim.m
+use_trimmed = true; % default: use_trimmed = true. Use trimmed session data if it exists. If set true, the program will trim session data according to definition with program find_spikes_and_trim.m
 
 %% User input required: Select options for nuisance regression:
 get_realign = true; % 6 realignment regressors (3 translation, 3 rotation parameters)
@@ -24,6 +38,7 @@ get_outlier = false; % motion outlier "spike" regressors
 %% Read data from datasheet
 data = readtable('datasheet.xlsx','ReadRowNames',true,'PreserveVariableNames',true,'NumHeaderLines',0);
 userInputcol = find(strcmp(data.Properties.VariableNames,'UserInput'));
+minImagescol = find(strcmp(data.Properties.VariableNames,'MinImages'));
 DataAnalysisPathline = find(strcmp(data.Properties.RowNames,'data analysis path'));
 data_analysis_path = data{DataAnalysisPathline,userInputcol}{:};
 datasetd = [data_analysis_path,filesep,'dataset'];
@@ -94,22 +109,39 @@ ContrastMinus1col = find(strcmp(condata.Properties.VariableNames,'ContrastMinus1
 
 conlines = find(contains(condata.Properties.RowNames,'Contrast'));
 
-%% Go through subjects and calculate firstlevel
-allsubs = dir([derivd,filesep,'sub-EFP*']);
+%% Go through subjects and estimate firstlevel
+allsubs = dir([derivd,filesep,'sub-*']);
 
 for subject = 1:length(allsubs)
     if allsubs(subject).isdir
         allses = dir(fullfile(derivd,allsubs(subject).name,'ses-*'));
         
-        for session = 1:length(allses)
-            if allses(session).isdir
-                fprintf(['\nProcessing ',allsubs(subject).name,' ',allses(session).name,'.\n']);
+        nses = length(allses);
+        if nses < 1 % Account for datasets that do not have ses subdirectory
+            nses = 1;
+            sesid = false;
+        else
+            sesid = true;
+        end
+        
+        for session = 1:nses
+            if (sesid && allses(session).isdir) || ~sesid
                 
+                if sesid
+                    sesdir = fullfile(allsubs(subject).name,allses(session).name);
+                    sesdata_prefix = [allsubs(subject).name,'_',allses(session).name];
+                    fprintf(['\nProcessing ',allsubs(subject).name,' ',allses(session).name,'.\n']);
+                else
+                    sesdir = allsubs(subject).name;
+                    sesdata_prefix = allsubs(subject).name;
+                    fprintf(['\nProcessing ',allsubs(subject).name,'.\n']);
+                end
+                    
                 %% Define paths and do couple of checks before creating firstlevel model
                 
                 % Is there a Stimulus Onset Times file defining the stimulus protocol?
-                multicondf = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_multicond.mat'];
-                multicondp = fullfile(datasetd,allsubs(subject).name,allses(session).name,'func');
+                multicondf = [sesdata_prefix,'_task-',reqtask,'_multicond.mat'];
+                multicondp = fullfile(datasetd,sesdir,'func');
                 if isfile(fullfile(multicondp,multicondf))
                     multicond_ok = 1;
                 else
@@ -118,8 +150,8 @@ for subject = 1:length(allsubs)
                 end
                 
                 % Does a smoothed derivative image exist?
-                derivname = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_*desc-preproc_desc-s',smkernel,'_bold.nii'];
-                derivp = fullfile(derivd,allsubs(subject).name,allses(session).name,'func');
+                derivname = [sesdata_prefix,'_task-',reqtask,'_*desc-preproc_desc-s',smkernel,'_bold.nii'];
+                derivp = fullfile(derivd,sesdir,'func');
                 derivnii = dir(fullfile(derivp,derivname));
                 if length(derivnii) == 1
                     fprintf(['Found derivative file ',derivnii.name,'.\n']);
@@ -169,24 +201,30 @@ for subject = 1:length(allsubs)
                 end
                 
                 % Check for trimsession file and define directory to write first-level SPM.mat
-                firstleveld = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask];
-                firstlevelp = fullfile(data_analysis_path,'spm_analysis','firstlevel',allses(session).name,['task-',reqtask],'taskrelated_standard');
-                trimf = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_trimsession.mat'];
+                firstleveld = [sesdata_prefix,'_task-',reqtask];
+                
+                if sesid
+                    firstlevelp = fullfile(data_analysis_path,'spm_analysis','firstlevel',allses(session).name,['task-',reqtask],'taskrelated_activity');
+                else
+                    firstlevelp = fullfile(data_analysis_path,'spm_analysis','firstlevel',['task-',reqtask],'taskrelated_activity');
+                end
+                
+                trimf = [sesdata_prefix,'_task-',reqtask,'_trimsession.mat'];
                 trim = false; % set flag false as standard. Do now couple of checks to give detailed user feedback:
                 
                 if exist([derivp,filesep,trimf],'file') && use_trimmed
                     fprintf('Found trimsession file.\nProceed with trimmed session data.\n')
                     trim = true;
-                    firstlevelp = fullfile(firstlevelp,'trimmed_regular',firstleveld);
+                    firstlevelp = fullfile(firstlevelp,'trimmed_original',firstleveld);
                 elseif exist([derivp,filesep,trimf],'file') && ~use_trimmed
                     fprintf('Trimsession file exists, but use_trimmed is false.\nProceed with full session data.\n')
-                    firstlevelp = fullfile(firstlevelp,'regular',firstleveld);
+                    firstlevelp = fullfile(firstlevelp,'original',firstleveld);
                 elseif ~exist([derivp,filesep,trimf],'file') && use_trimmed
                     fprintf('Use_trimmed is true but no trimsession file was found.\nProceed with full session data.\n')
-                    firstlevelp = fullfile(firstlevelp,'regular',firstleveld);
+                    firstlevelp = fullfile(firstlevelp,'original',firstleveld);
                 elseif ~exist([derivp,filesep,trimf],'file') && ~use_trimmed
                     fprintf('Proceed with full session data.\n')
-                    firstlevelp = fullfile(firstlevelp,'regular',firstleveld);
+                    firstlevelp = fullfile(firstlevelp,'original',firstleveld);
                 end
                 
                 % Check for firstlevel directory and if it does not exist: create it
@@ -199,11 +237,12 @@ for subject = 1:length(allsubs)
                         spm_ok = 0;
                     end
                 else
-                    mkdir(firstlevelp)
                     spm_ok = 1;
                 end
                 
                 if spm_ok && multireg_ok && multicond_ok && deriv_ok
+                    
+                    mkdir(firstlevelp)
                     
                     %% Make and execute batch
                     % Define spm12 model
@@ -213,7 +252,7 @@ for subject = 1:length(allsubs)
                     matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t = slices;
                     matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t0 = round(slices/2); % Input reference slice to which images were aligned to during slice-timing step. fMRIPrep aligns to middle slice if corresponding metadata information is available.
                     
-                    getscans = cellstr(spm_select('Expand',fullfile(derivd,allsubs(subject).name,allses(session).name,'func',derivnii.name)));
+                    getscans = cellstr(spm_select('Expand',fullfile(derivd,sesdir,'func',derivnii.name)));
                     
                     % if scan was trimmed: load trimsession file and adjust Stimulus Onset Times (SOTs) if necessary
                     % Note: Estimation of spm may crash if trimming leads us to
@@ -265,7 +304,7 @@ for subject = 1:length(allsubs)
                         end
                         
                         if lastscan < length(getscans) % check whether volumes are trimmed in the end of the scan
-                            fprintf('CAVE: Adjustment of SOTs for tail-trimmed scans is not sufficiently tested.\n')
+                            fprintf('CAVE: Adjustment of SOTs for tail-trimmed scans has not been tested sufficiently!\n')
                             truelength = (lastscan * TR) - trimdelay; % this is the length of the scan after correction for trimming in the beginning
                             trim2_corrected_onsets = cell(1,length(SOTS.onsets)); % initiate a new onset matrix to fill
                             trim2_corrected_durations = cell(1,length(SOTS.durations)); % initiate a new onset matrix to fill
@@ -291,7 +330,7 @@ for subject = 1:length(allsubs)
                             durations = trim2_corrected_durations;                            
                         end
                         
-                        multicondf = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_trimmed_multicond.mat'];
+                        multicondf = [sesdata_prefix,'_task-',reqtask,'_trimmed_multicond.mat'];
                         save(fullfile(multicondp,multicondf),'names','onsets','durations') % save a multicond-file with trimmed SOTs
                         
                     else
