@@ -18,10 +18,10 @@ addpath(genpath(folder));
 %% Define directories and initiate variables
 pos = 0;
 % firstleveldir = uigetdir(pwd,'Select firstlevel directory including the subject directories'); % directory containing child directories with each child containing an estimated firstlevel SPM.mat
-firstleveldir = 'Y:\Projects\EFPTest\Data_analysis\spm_analysis\firstlevel\ses-pre\task-efptest\taskrelated_activity';
+firstleveldir = 'Y:\Projects\EFPTest\Data_analysis\spm_analysis\firstlevel\ses-post\task-AllAvailable\efpmodel\repaired';
 subdirs = dir([firstleveldir,filesep,'sub*']);
-% maskdir = uigetdir(pwd,'Select directory containing binary brain mask files (*roi.mat)');
-maskdir = 'Y:\Projects\EFPTest\Data_analysis\brain masks';
+maskdir = uigetdir(pwd,'Select directory containing binary brain mask files (*roi.mat)');
+% maskdir = 'Y:\Projects\EFPTest\Data_analysis\brain masks';
 
 %%
 if ~isempty(subdirs)
@@ -53,122 +53,156 @@ if ~isempty(subdirs)
                     fprintf('An error occured. Directory may not be consistent with BIDS.\n')
                     return
                 end
-            end            
+            end
             
             spm_name = fullfile(firstleveldir,subdirs(sub).name,'SPM.mat');
             
-            spm_data = load(spm_name); % load spm to get stimulus timings
-            
-            %% Get contrast values (from marsbar manual: http://marsbar.sourceforge.net/index.html)
-            fprintf('Get contrast values.\n')
-            % Make marsbar design object
-            D = mardo(spm_name);
-            % Make marsbar ROI object
-            R = maroi(roif);
-            % Fetch data into marsbar data object
-            Y = get_marsy(R, D, 'mean');
-            % Get contrasts from original design
-            xCon = get_contrasts(D);
-            % Estimate design on ROI data
-            E = estimate(D, Y);
-            
-            % Put contrasts from original design back into design object
-            E = set_contrasts(E, xCon);
-            % get design betas
-            b = betas(E);
-            % get stats and stuff for all contrasts into statistics structure
-            marsS = compute_contrasts(E, 1:length(xCon));
-            
-            %% Extract percent signal change (from marsbar manual)
-            fprintf('Extract percent signal change and estimate event-related timecourses.\n')
-            [e_specs, e_names] = event_specs(D);
-            n_events = size(e_specs, 2);
-            
-            bin_size = tr(E)*2; % Bin size in seconds for FIR            
-            opts = struct('single', 1, 'percent', 1); % Options - here �single� FIR model, return estimated % signal change
-            
-            for d_s = 1:n_events
-                alldur(d_s) = mean(spm_data.SPM.Sess.U(:,1).dur); % Caution: assuming that all events of a condition have similar duration
-            end
-            
-            dur = max(alldur)+12; % set duration to sample timecourses to maximum length needed. Add 12 s post stimulus offset            
-            
-            for e_s = 1:n_events
+            if exist(spm_name,'file')
                 
-                pct_ev(e_s) = event_signal(E, e_specs(:,e_s), dur); % Extract percent signal change
+                spm_data = load(spm_name); % load spm to get stimulus timings
                 
-                bin_no = round(dur / bin_size); % Number of FIR time bins to cover length of FIR
-                fir_tc(:, e_s) = event_fitted_fir(E, e_specs(:,e_s), bin_size, bin_no, opts); % FIR timecourse
-                fitted_tc(:,e_s) = event_fitted(E,e_specs(:,e_s),dur); % Fitted timecourse
-            end
-            
-            %% Write tables (CP)
-            fprintf('Write results to tables.\n')
-            if pos == 0
-                pos = pos+1;
+                %% Get contrast values (from marsbar manual: http://marsbar.sourceforge.net/index.html)
+                fprintf('Get contrast values.\n')
+                % Make marsbar design object
+                D = mardo(spm_name);
+                % Make marsbar ROI object
+                R = maroi(roif);
+                % Fetch data into marsbar data object
+                Y = get_marsy(R, D, 'mean');
+                % Get contrasts from original design
+                xCon = get_contrasts(D);
+                % Estimate design on ROI data
+                E = estimate(D, Y);
                 
-                % contrast file
-                % prepare header for contrast output file
-                [nr_cons,~]=size(marsS.con);
-                fprintf(con_file,'%s','subject');
-                for j=1:nr_cons
-                    fprintf(con_file,'\t%s',marsS.rows{1,j}.name); % print labels in header
+                % Put contrasts from original design back into design object
+                E = set_contrasts(E, xCon);
+                % get design betas
+                b = betas(E);
+                % get stats and stuff for all contrasts into statistics structure
+                marsS = compute_contrasts(E, 1:length(xCon));
+                
+                %% Extract percent signal change (from marsbar manual)
+                fprintf('Extract percent signal change and estimate event-related timecourses.\n')
+                
+                try
+                    [e_specs, e_names] = event_specs(D);
+                    n_events = size(e_specs, 2);
+                    
+                    bin_size = tr(E)*2; % Bin size in seconds for FIR
+                    opts = struct('single', 1, 'percent', 1); % Options - here �single� FIR model, return estimated % signal change
+                    
+                    for d_s = 1:n_events
+                        alldur(d_s) = mean(spm_data.SPM.Sess.U(:,1).dur); % Caution: assuming that all events of a condition have similar duration
+                    end
+                    
+                    dur = max(alldur)+12; % set duration to sample timecourses to maximum length needed. Add 12 s post stimulus offset
+                    
+                    notcdata = []; % initiate matrix to collect names of events (i.e. tasks) for which timecourses cannot be estimated
+                    
+                    for e_s = 1:n_events
+                        
+                        pct_ev(e_s) = event_signal(E, e_specs(:,e_s), dur); % Extract percent signal change
+                        
+                        try
+                            bin_no = round(dur / bin_size); % Number of FIR time bins to cover length of FIR
+                            fir_tc(:, e_s) = event_fitted_fir(E, e_specs(:,e_s), bin_size, bin_no, opts); % FIR timecourse
+                            fitted_tc(:,e_s) = event_fitted(E,e_specs(:,e_s),dur); % Fitted timecourse
+                        catch
+                            fprintf(['   An error occured: cannot get FIR and fitted timecourse for ',e_names{e_s},'. This may happen when a task event is interrupted e.g. because of disrupted scan.\n']);
+                            notcdata = [notcdata; e_names(e_s)];
+                        end
+                    end
+                    psc_success = true;
+                catch
+                    fprintf('   Failed. This can happen because no events have been modeled.\n')
+                    psc_success = false;
                 end
-                % prepare variable coding output format of data
-                con_format=['\n%s',repmat('\t%6.4f',1,nr_cons)];
                 
-                % percent signal change file
-                % prepare header for contrast output file
-                [~,nr_betas]=size(e_names);
-                fprintf(psc_file,'%s','subject');
-                for j=1:nr_betas
-                    fprintf(psc_file,'\t%s',e_names{j}); % print labels in header
+                %% Write tables (CP)
+                fprintf('Write results to tables.\n')
+                if pos == 0
+                    pos = pos+1;
+                    
+                    % contrast file
+                    % prepare header for contrast output file
+                    [nr_cons,~]=size(marsS.con);
+                    fprintf(con_file,'%s','subject');
+                    for j=1:nr_cons
+                        fprintf(con_file,'\t%s',marsS.rows{1,j}.name); % print labels in header
+                    end
+                    % prepare variable coding output format of data
+                    con_format=['\n%s',repmat('\t%6.4f',1,nr_cons)];
+                    
+                    if psc_success
+                        % percent signal change file
+                        % prepare header for contrast output file
+                        [~,nr_betas]=size(e_names);
+                        fprintf(psc_file,'%s','subject');
+                        for j=1:nr_betas
+                            fprintf(psc_file,'\t%s',e_names{j}); % print labels in header
+                        end
+                        % prepare variable coding output format of data
+                        psc_format=['\n%s',repmat('\t%6.4f',1,nr_betas)];
+                    end
+                    
                 end
-                % prepare variable coding output format of data
-                psc_format=['\n%s',repmat('\t%6.4f',1,nr_betas)];
                 
-            end
-            
-            % print contrast values to output file
-            fprintf(con_file,con_format,subdirs(sub).name(1:dum1-1),marsS.con);
-            
-            % print psc values to output file
-            fprintf(psc_file,psc_format,subdirs(sub).name(1:dum1-1),pct_ev);
-            
-            % write timecourse data to dummy matrix
-            for e_t=1:n_events
-                fir_tc_dum{pos}.tcs(e_t,:)=fir_tc(:,e_t); % timecourse data
-                fir_tc_dum{pos}.conditions(e_t)=e_names(e_t); % get condition label
-                fir_tc_dum{pos}.vp=subdirs(sub).name(1:dum1-1);
-                fitted_tc_dum{pos}.tcs(e_t,:)=fitted_tc(:,e_t); % timecourse data
-                fitted_tc_dum{pos}.conditions(e_t)=e_names(e_t); % get condition label
-                fitted_tc_dum{pos}.vp=subdirs(sub).name(1:dum1-1);
-            end
-            
-            clear('D','R','Y','E','xCon','b','marsS','opts','fir_tc','fitted_tc','pct_ev','nr_cons','nr_betas');
-
-            % prepare header for timecourse output files
-            fprintf(fir_tc_file,'%s\t%s','subject','condition_label');
-            for j=1:bin_no
-                fprintf(fir_tc_file,'\t%s',int2str(j)); % print labels to header
-            end
-            
-            fprintf(fitted_tc_file,'%s\t%s','subject','condition_label');
-            [~,n_lines] = size(fitted_tc_dum{1}.tcs); % look up nr of bins of first subject
-            for j=1:n_lines
-                fprintf(fitted_tc_file,'\t%s',int2str(j));
-            end
-            
-            % prepare variables coding output format of data
-            fir_tc_format=['\n%s\t%s',repmat('\t%6.4f',1,bin_no)];
-            fitted_tc_format=['\n%s\t%s',repmat('\t%6.4f',1,n_lines)];
-            
-            % print timecourse data to output file
-            for e_t=1:n_events
-                for j=1:pos
-                    fprintf(fir_tc_file,fir_tc_format,subdirs(sub).name(1:dum1-1),fir_tc_dum{j}.conditions{e_t},fir_tc_dum{j}.tcs(e_t,:));
-                    fprintf(fitted_tc_file,fitted_tc_format,subdirs(sub).name(1:dum1-1),fitted_tc_dum{j}.conditions{e_t},fitted_tc_dum{j}.tcs(e_t,:));
+                % print contrast values to output file
+                fprintf(con_file,con_format,subdirs(sub).name(1:dum1-1),marsS.con);
+                
+                if psc_success
+                    % print psc values to output file
+                    fprintf(psc_file,psc_format,subdirs(sub).name(1:dum1-1),pct_ev);
+                    
+                    % write timecourse data to dummy matrix
+                    for e_t=1:n_events
+                        if ~any(strcmp(notcdata,e_names(e_t)))
+                            fir_tc_dum{pos}.tcs(e_t,:)=fir_tc(:,e_t); % timecourse data
+                            fir_tc_dum{pos}.conditions(e_t)=e_names(e_t); % get condition label
+                            fir_tc_dum{pos}.vp=subdirs(sub).name(1:dum1-1);
+                            fitted_tc_dum{pos}.tcs(e_t,:)=fitted_tc(:,e_t); % timecourse data
+                            fitted_tc_dum{pos}.conditions(e_t)=e_names(e_t); % get condition label
+                            fitted_tc_dum{pos}.vp=subdirs(sub).name(1:dum1-1);
+                        end
+                    end
                 end
+                
+                clear('D','R','Y','E','xCon','b','marsS','opts','fir_tc','fitted_tc','pct_ev','nr_cons','nr_betas');
+                
+                if psc_success
+                    % prepare header for timecourse output files
+                    fprintf(fir_tc_file,'%s\t%s','subject','condition_label');
+                    for j=1:bin_no
+                        fprintf(fir_tc_file,'\t%s',int2str(j)); % print labels to header
+                    end
+                    
+                    fprintf(fitted_tc_file,'%s\t%s','subject','condition_label');
+                    [~,n_lines] = size(fitted_tc_dum{1}.tcs); % look up nr of bins of first subject
+                    for j=1:n_lines
+                        fprintf(fitted_tc_file,'\t%s',int2str(j));
+                    end
+                    
+                    % prepare variables coding output format of data
+                    fir_tc_format=['\n%s\t%s',repmat('\t%6.4f',1,bin_no)];
+                    fitted_tc_format=['\n%s\t%s',repmat('\t%6.4f',1,n_lines)];
+                    
+                    % print timecourse data to output file
+                    for e_t=1:n_events
+                        for j=1:pos
+                            if ~any(strcmp(notcdata,e_names(e_t)))
+                                fprintf(fir_tc_file,fir_tc_format,subdirs(sub).name(1:dum1-1),fir_tc_dum{j}.conditions{e_t},fir_tc_dum{j}.tcs(e_t,:));
+                                fprintf(fitted_tc_file,fitted_tc_format,subdirs(sub).name(1:dum1-1),fitted_tc_dum{j}.conditions{e_t},fitted_tc_dum{j}.tcs(e_t,:));
+                            end
+                        end
+                    end
+                    
+                    clear('fir_tc_dum', 'fitted_tc_dum')
+                else
+                    fprintf('   No BOLD percent signal change and no time course data available.\n')
+                    
+                end
+            else
+                fprintf('   No SPM.mat found for this subject.\n')
             end
             
         end
@@ -185,12 +219,18 @@ if ~isempty(subdirs)
     
     title = 'Data in ROI txt files produced with marsbar-0.4.4';
     ref_lit = 'Matthew Brett, Jean-Luc Anton, Romain Valabregue, Jean-Baptiste Poline. Region of interest analysis using an SPM toolbox [abstract] Presented at the 8th International Conference on Functional Mapping of the Human Brain, June 2-6, 2002, Sendai, Japan. Available on CD-ROM in NeuroImage, Vol 16, No 2.';
-    ref_web = 'ROI-percent-BOLD-signal-change txt file: To learn how percent signal change was calculated see http://marsbar.sourceforge.net/index.html';
-    fir_met = ['ROI-FIR-timecourse txt file: Timecourse was modeled with a Finite Impulse Response (FIR) function, start is stimulus onset, with bin size ',int2str(bin_size),' s (per unit on x-axis) and duration of ',int2str(dur),' s. Note that bin size and duration correspond to parameters of the last subject and may differ for other subjects.'];
-    fit_met = ['ROI-fitted-timecourse txt file: Timecourse was modeled with the HRF, start is stimulus onset, with duration of ',int2str(dur),' s.'];
+    if psc_success
+        ref_web = 'ROI-percent-BOLD-signal-change txt file: To learn how percent signal change was calculated see http://marsbar.sourceforge.net/index.html';
+        fir_met = ['ROI-FIR-timecourse txt file: Timecourse was modeled with a Finite Impulse Response (FIR) function, start is stimulus onset, with bin size ',int2str(bin_size),' s (per unit on x-axis) and duration of ',int2str(dur),' s. Note that bin size and duration correspond to parameters of the last subject and may differ for other subjects.'];
+        fit_met = ['ROI-fitted-timecourse txt file: Timecourse was modeled with the HRF, start is stimulus onset, with duration of ',int2str(dur),' s.'];
+    end
     ref_rabids = 'Extraction of data was run with an in-house matlab script called ROIanalysis_1_extract.m, available via https://github.com/christianparet/RaBIDS in the auxiliary tools directory.';
     
-    fprintf(readme_file,'%s\n\n%s\n%s\n%s\n\n%s\n%s\n%s',title, ref_web,fir_met,fit_met,'References:',ref_lit,ref_rabids);
+    if psc_success
+        fprintf(readme_file,'%s\n\n%s\n%s\n%s\n\n%s\n%s\n%s',title, ref_web,fir_met,fit_met,'References:',ref_lit,ref_rabids);
+    else
+        fprintf(readme_file,'%s\n\n%s\n%s\n%s',title, 'References:',ref_lit,ref_rabids);
+    end
     fclose(readme_file);
 end
 rmpath(genpath(folder));

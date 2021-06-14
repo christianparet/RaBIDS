@@ -123,7 +123,7 @@ for sub = 30:32%1:length(allsubs)
         fprintf('Found original firstlevel SPM.\n')
         spm_available = 1;
         
-        datafile_ID(subcount,:) = allsubs(sub).name;
+        datafile_ID{subcount,:} = allsubs(sub).name;
         session_data(subcount,:) = 'complete';
             
         % Define scale factors to be passed to art_summary (I re-used code found in the art_summary function

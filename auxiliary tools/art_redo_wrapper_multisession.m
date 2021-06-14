@@ -16,11 +16,11 @@ clear
 spm_analysis_dir = 'Y:\Projects\EFPTest\Data_analysis\spm_analysis';
 threednii =  'repaired_preprocessed_3dnii'; % path to repaired data
 sesdir = 'ses-post'; % the session you want to process
-taskdir = 'task-AllAvailable'; % the name of the firstlevel task-directory (can be different than single-task names/taskID, e.g. in multi-session design)
+taskdir = 'task-efptest'; % the name of the firstlevel task-directory (can be different than single-task names/taskID, e.g. in multi-session design)
 
-taskspecdir = 'efpmodel'; % defines subdirectory of firstlevel task-directory, where the original SPM can be found
+taskspecdir = 'taskrelated_activity'; % defines subdirectory of firstlevel task-directory, where the original SPM can be found
 
-conimage = 'con_0004.nii'; % define the con image to compute quality indices
+conimage = 'con_0001.nii'; % define the con image to compute quality indices
 backupcon = 'con_0001.nii'; % this option is introduced as workaround for subjects that do not have con_0004.nii (because of missing Session data)
 
 % subdirectories of threednii directory are structured:
@@ -95,15 +95,27 @@ for sub = 1:length(allsubs)
     pos = strfind(allsubs(sub).name,'_ses-');
     subID = allsubs(sub).name(1:pos-1);
     
-    repfirstlevel = fullfile(spm_analysis_dir,'firstlevel',sesdir,taskdir,taskspecdir,'repaired'); % this is the directory where we write the repaired firstlevel model to
-    origSPMpath = fullfile(spm_analysis_dir,'firstlevel',sesdir,taskdir,taskspecdir,'regular',allsubs(sub).name); % this is the directory containing the original model (SPM.mat) that art_redo should use to re-estimate with repaired volumes
+    if trim 
+        origSPMpath = fullfile(spm_analysis_dir,'firstlevel',sesdir,taskdir,taskspecdir,'trimmed_regular',allsubs(sub).name); % this is the directory containing the original model (SPM.mat) that art_redo should use to re-estimate with repaired volumes
+        repfirstlevel = fullfile(spm_analysis_dir,'firstlevel',sesdir,taskdir,taskspecdir,'trimmed_repaired'); % this is the directory where we write the repaired firstlevel model to   
+        TrimOrComplete = 'trimmed';
+        if ~exist(origSPMpath,'dir')
+            origSPMpath = fullfile(spm_analysis_dir,'firstlevel',sesdir,taskdir,taskspecdir,'regular',allsubs(sub).name); % this is the directory containing the original model (SPM.mat) that art_redo should use to re-estimate with repaired volumes
+            repfirstlevel = fullfile(spm_analysis_dir,'firstlevel',sesdir,taskdir,taskspecdir,'repaired'); % this is the directory where we write the repaired firstlevel model to   
+            TrimOrComplete = 'complete';
+        end
+    else
+        origSPMpath = fullfile(spm_analysis_dir,'firstlevel',sesdir,taskdir,taskspecdir,'regular',allsubs(sub).name); % this is the directory containing the original model (SPM.mat) that art_redo should use to re-estimate with repaired volumes
+        repfirstlevel = fullfile(spm_analysis_dir,'firstlevel',sesdir,taskdir,taskspecdir,'repaired'); % this is the directory where we write the repaired firstlevel model to   
+        TrimOrComplete = 'complete';
+    end        
 
     if exist(fullfile(origSPMpath,'SPM.mat'),'file')
         fprintf('Found original firstlevel SPM.\n')
         spm_available = 1;
         
-        datafile_ID(subcount,:) = allsubs(sub).name;
-        session_data(subcount,:) = 'complete';
+        datafile_ID{subcount,:} = allsubs(sub).name;
+        session_data{subcount,:} = TrimOrComplete;
         
         % Define scale factors to be passed to art_summary (I re-used code found in the art_summary function
         imgmask = fullfile(origSPMpath,'mask.nii');
@@ -116,6 +128,10 @@ for sub = 1:length(allsubs)
         peak_value = ScaleFactors(1);
         contrast_value = ScaleFactors(2);
         bmean = ScaleFactors(3);
+        
+        if exist(fullfile(origSPMpath,'GlobalQuality.txt'),'file')
+            delete(fullfile(origSPMpath,'GlobalQuality.txt')) % ArtRepair appends GlobalQuality file if it exists
+        end
         
         try
             [StdEstimationError_origSPM(subcount,:),MeanEstimationError_origSPM(subcount,:),ResMSerror_origSPM(subcount,:)] = art_summary(fullfile(origSPMpath,conimage),imgmask,origSPMpath,allsubs(sub).name,1,ScaleFactors);
@@ -134,7 +150,7 @@ for sub = 1:length(allsubs)
     end
     
     if exist(fullfile(repfirstlevel,allsubs(sub).name),'dir')
-        if exist(fullfile(repfirstlevel,allsubs(sub).name,conimage),'file')
+        if exist(fullfile(repfirstlevel,allsubs(sub).name,'con_0001.nii'),'file')
             fprintf('Model has already been estimated with repaired data. Skip subject.\n')
             goahead = 0;
             
@@ -149,6 +165,10 @@ for sub = 1:length(allsubs)
             peak_value = ScaleFactors(1);
             contrast_value = ScaleFactors(2);
             bmean = ScaleFactors(3);
+            
+            if exist(fullfile(repfirstlevel,allsubs(sub).name,'GlobalQuality.txt'),'file')
+                delete(fullfile(repfirstlevel,allsubs(sub).name,'GlobalQuality.txt')) % ArtRepair appends GlobalQuality file if it exists
+            end
             
             try
                 [StdEstimationError_redoSPM(subcount,:),MeanEstimationError_redoSPM(subcount,:),ResMSerror_redoSPM(subcount,:)] = art_summary(fullfile(repfirstlevel,allsubs(sub).name,conimage),imgmask,fullfile(repfirstlevel,allsubs(sub).name),allsubs(sub).name,1,ScaleFactors);
@@ -166,6 +186,8 @@ for sub = 1:length(allsubs)
         mkdir(fullfile(repfirstlevel,allsubs(sub).name))
     end
     
+    RepairResults = spm_select('FPList',repfirstlevel,'dir',allsubs(sub).name); % by CP, 2021/04/06
+    
     if spm_available % introduced by CP, 2021/04/06
         
         % Get the existing SPM file
@@ -175,7 +197,6 @@ for sub = 1:length(allsubs)
         %         RepairResults = spm_select(1,'dir','Select folder for Repaired Results'); % Commented out by CP, 2021/04/06
         
         origSPM   = spm_select('FPList',origSPMpath,'SPM.mat'); % by CP, 2021/04/06
-        RepairResults = spm_select('FPList',repfirstlevel,'dir',allsubs(sub).name); % by CP, 2021/04/06
         
         %     else % Commented out by CP, 2021/04/06
         %         origSPM = spm_get(1, 'SPM.mat', 'Select SPM design to re-estimate'); % Commented out by CP, 2021/04/06
@@ -226,6 +247,7 @@ for sub = 1:length(allsubs)
                 
                 Pnew{j} = spm_select('FPList',repdatadir,'^v.*' ); % by CP, 2021/05/11
                 
+                
                 %                 askstring = ['Select repaired images for session ' num2str(j) ]; % Commented out by CP, 2021/04/06
                 %                 if strcmp(spm_ver,'spm5') % Commented out by CP, 2021/04/06
                 %                     Pnew{j}   = spm_select(Inf,'image', askstring,[],dirSPM,'^v.*' ); % Commented out by CP, 2021/04/06
@@ -235,9 +257,10 @@ for sub = 1:length(allsubs)
             end
             
             %% To concatenate character arrays defining volumes: account for variable array size (CP 2021/05/11)
-            Narrays=[];
+            Narrays = [];
+            SPM.nscan = [];
             for i = 1:num_sess
-                Narrays = [Narrays,min(numel(Pnew{i}(1,:)))]; % first, we collect sizes of character arrays in Narrays
+                [SPM.nscan(1,i) , Narrays(i)] = size(Pnew{i}); % Collect number of volumes per session in SPM.nscan and length of character arrays in Narrays
             end
                         
             scans = repmat(' ',Nvol,max(Narrays)); % inititate character matrix containing whitespaces of needed size
@@ -263,6 +286,8 @@ for sub = 1:length(allsubs)
         if (strcmp(SPM.xVi.form, 'i.i.d'))  % changed name is used in spm_fmri_spm_ui.
             SPM.xVi.form = 'none';
         end
+        
+        cd(SPM.swd); % moved this here because following spm command saves spm.mat to current directory, CP 6/9/21
         SPM = spm_fmri_spm_ui(SPM);
         
         %=====================================================================
@@ -332,7 +357,7 @@ for sub = 1:length(allsubs)
         %-------------------------------------------------------------
         % Write the amended SPM.mat file with deweighting and new data included.
         disp('The SPM.mat file has been modified and saved to disk.');
-        cd(SPM.swd);
+%         cd(SPM.swd); % moved this upwards, CP 6/9/2021
         save SPM SPM;
         
         
@@ -368,6 +393,10 @@ for sub = 1:length(allsubs)
         peak_value = ScaleFactors(1);
         contrast_value = ScaleFactors(2);
         bmean = ScaleFactors(3);
+        
+        if exist(fullfile(repfirstlevel,allsubs(sub).name,'GlobalQuality.txt'),'file')
+            delete(fullfile(repfirstlevel,allsubs(sub).name,'GlobalQuality.txt'))
+        end
         
         try
             [StdEstimationError_redoSPM(subcount,:),MeanEstimationError_redoSPM(subcount,:),ResMSerror_redoSPM(subcount,:)] = art_summary(fullfile(repfirstlevel,allsubs(sub).name,conimage),imgmask,fullfile(repfirstlevel,allsubs(sub).name),allsubs(sub).name,1,ScaleFactors);
