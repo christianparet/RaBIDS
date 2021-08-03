@@ -19,7 +19,11 @@
 % images would be shifted by the number of the discarded files.
 %
 % Download program to dataset/code directory to run this script
+
+%% Change log
+% 2021/08/03: to identify tsv-file including regressors, search word "confounds" was changed to wild card for  downwards compatibility with fMRIPrep versions before 20.2.0
 %%
+
 clear
 clc
 
@@ -111,13 +115,13 @@ for subject = 1:length(allsubs)
                 derivp = fullfile(derivd,allsubs(subject).name,allses(session).name,'func');
                 derivniif = dir(fullfile(derivp,derivname));
                 if length(derivniif) == 1
-                    fprintf(['Found derivative file ',derivniif.name,'.\n']);
+                    fprintf(['    Found derivative file ',derivniif.name,'.\n']);
                     deriv_ok = 1;
                 elseif isempty(derivniif)
-                    fprintf('Derivative image not found. Skip session.\n');
+                    fprintf('    Derivative image not found. Skip session.\n');
                     deriv_ok = 0;
                 else
-                    fprintf('Too many matching derivative files. Skip session.\n');
+                    fprintf('    Too many matching derivative files. Skip session.\n');
                     deriv_ok = 0;
                 end
                 
@@ -127,7 +131,7 @@ for subject = 1:length(allsubs)
                 trimf = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_trimsession.mat'];
                 threedniip = fullfile(data_analysis_path,'spm_analysis','repaired_preprocessed_3dnii',allses(session).name,allsubs(subject).name,['task-',reqtask],'complete_session_data'); % Path to save repaired 3d-nii data
                 if use_trimmed && isfile(fullfile(derivp,trimf))
-                    fprintf('Trimsession file found, importing trimmed session data.\n')
+                    fprintf('    Trimsession file found, importing trimmed session data.\n')
                     trim = true;
                     load([derivp,filesep,trimf]) % 1-by-2 vector with information of first/last scan to use; see script "find_spikes_and_trim_session.m"
                     if start_vol < trimses(1)
@@ -135,34 +139,42 @@ for subject = 1:length(allsubs)
                     end
                     threedniip = fullfile(data_analysis_path,'spm_analysis','repaired_preprocessed_3dnii',allses(session).name,allsubs(subject).name,['task-',reqtask],'trimmed_session_data'); % Path to save 3d-nii data
                 elseif use_trimmed && ~isfile(fullfile(derivp,trimf))
-                    fprintf('No trimsession file found, importing full session data.\n')
+                    fprintf('    No trimsession file found, importing full session data.\n')
                 else
-                    fprintf('Importing full session data.\n')
+                    fprintf('   Importing full session data.\n')
                 end
                 
                 %% Check for confounds time series file and read nuisance regressors into matrix R
-                conf_timeseriesf = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_desc-confounds_timeseries.tsv'];
-                if isfile(fullfile(derivp,conf_timeseriesf))
-                    
-                    fprintf('Confound-timeseries file found.\n')
-                    conf_ok = 1;
-                    conf_table = readtable([derivp,filesep,conf_timeseriesf],'FileType','text','ReadRowNames',false,'PreserveVariableNames',true,'NumHeaderLines',0);
-                    
-                    % Collect the realignment regressors in matrix R
-                    R = [conf_table.trans_x, conf_table.trans_y, conf_table.trans_z, conf_table.rot_x, conf_table.rot_y, conf_table.rot_z];
-                    
-                    % discard initial volumes and trim session data if needed
-                    if trim
-                        R = R(start_vol:trimses(2),:);
-                    else
-                        R = R(start_vol:end,:);
-                    end
-                        
-                else
-                    fprintf('No confound-timeseries file found. Skip session.\n')
-                    conf_ok = 0;
-                end                               
+                conf_timeseriesf = dir(fullfile(derivp,'sub-*-confounds_*.tsv')); 
                 
+                if ~isempty(conf_timeseriesf)
+                    fprintf('    Confound timeseries file found.\n');
+                    conf_ok = 1;
+                    for funcs = 1:length(conf_timeseriesf)
+                        pos1 = strfind(conf_timeseriesf(funcs).name,'task');
+                        pos2 = strfind(conf_timeseriesf(funcs).name,'_desc-confounds');
+                        taskid = conf_timeseriesf(funcs).name(pos1+5:pos2-1);
+                        
+                        if strcmp(reqtask,taskid)
+                            conf_table = readtable(fullfile(derivp,conf_timeseriesf(funcs).name),'FileType','text','ReadRowNames',false,'PreserveVariableNames',true,'NumHeaderLines',0);
+                            
+                            % realignment regressors
+                            R = [conf_table.trans_x, conf_table.trans_y, conf_table.trans_z, conf_table.rot_x, conf_table.rot_y, conf_table.rot_z];
+                            
+                            % discard initial volumes and trim session data if needed
+                            if trim
+                                R = R(start_vol:trimses(2),:);
+                            else
+                                R = R(start_vol:end,:);
+                            end
+                            
+                        end
+                    end
+                else
+                    fprintf('    No confound-timeseries file found. Skip session.\n')
+                    conf_ok = 0;
+                end
+                               
                 %% Process session data if requirements are met
                 if deriv_ok && conf_ok
                     
@@ -170,20 +182,20 @@ for subject = 1:length(allsubs)
                     pos = strfind(derivniif.name,'_bold');
                     threedniif = dir(fullfile(threedniip,['v',derivniif.name(1:pos),'bold_',num2str(start_vol,'%.4d'),'.nii']));
                     if length(threedniif) == 1
-                        fprintf('Found at least one repaired volume in target directory. Skip Session.\n');
+                        fprintf('    Found at least one repaired volume in target directory. Skip Session.\n');
                     else
                         threednii_ok = 0;
                         if ~exist(threedniip,'dir') % if directory not exists yet: create output dir
                             mkdir(threedniip)
                         end
-                        fprintf('Convert 4d-nii to 3d-nii.\n')
+                        fprintf('    Convert 4d-nii to 3d-nii.\n')
                         
                         %% Create 3d-nifti data, because ArtRepair v5b is incompatible with 4d-nifti
                         % Code comes from Chris Roden, https://www.nitrc.org/forum/forum.php?thread_id=9969&forum_id=4703
                         [pth,nam,ext] = spm_fileparts(fullfile(derivp,derivniif.name));
                         image = fullfile(pth,[nam,ext]); %'img.nii,1' -> 'img.nii'
                         hdr = spm_vol(image);
-                        fprintf('   Reading 4d-nii volumes...\n')
+                        fprintf('    Reading 4d-nii volumes...\n')
                         img = spm_read_vols(hdr);
                         nvol = numel(hdr); 
                         
@@ -218,7 +230,7 @@ for subject = 1:length(allsubs)
                         
                         % Remove the original, unrepaired 3d-niftis as they are no longer needed
                         originscans = dir(fullfile(threedniip, [nam, '_*']));
-                        fprintf('Removing original 3d-nii volumes...\n')
+                        fprintf('    Removing original 3d-nii volumes...\n')
                         for i=1:length(originscans)
                             delete(fullfile(threedniip,originscans(i).name));
                         end
