@@ -11,6 +11,7 @@
 
 % Change Log
 % 2021/07/29: to identify tsv-file including regressors, search word "confounds" was changed to wild card for  downwards compatibility with fMRIPrep versions before 20.2.0
+% 2021/08/09: definition of variable minImagescol added (bug remove)
 
 clear
 clc
@@ -32,6 +33,8 @@ DataAnalysisPathline = find(strcmp(data.Properties.RowNames,'data analysis path'
 data_analysis_path = data{DataAnalysisPathline,userInputcol}{:};
 datasetd = [data_analysis_path,filesep,'dataset'];
 first_imageline = find(strcmp(data.Properties.RowNames,'first image'));
+minImagescol = find(strcmp(data.Properties.VariableNames,'MinImages'));
+
 if contains(data{first_imageline,userInputcol}{:},'y')
     first_image = 1; % X=1:[first_image-1] images are skipped in create sots step and were deleted from the dicom-directory (the delete-mode will be removed in a future RaBIDS version and should not be used
     fimgs_exist = 0;
@@ -99,7 +102,7 @@ ContrastMinus1col = find(strcmp(condata.Properties.VariableNames,'ContrastMinus1
 conlines = find(contains(condata.Properties.RowNames,'Contrast'));
 
 %% Go through subjects and calculate firstlevel
-allsubs = dir([derivd,filesep,'sub-EFP*']);
+allsubs = dir([derivd,filesep,'sub-*']);
 
 for subject = 1:length(allsubs)
     if allsubs(subject).isdir
@@ -181,16 +184,16 @@ for subject = 1:length(allsubs)
                 if exist([derivp,filesep,trimf],'file') && use_trimmed
                     fprintf('Found trimsession file.\nProceed with trimmed session data.\n')
                     trim = true;
-                    firstlevelp = fullfile(firstlevelp,'trimmed_regular',firstleveld);
+                    firstlevelp = fullfile(firstlevelp,'trimmed_original',firstleveld);
                 elseif exist([derivp,filesep,trimf],'file') && ~use_trimmed
                     fprintf('Trimsession file exists, but use_trimmed is false.\nProceed with full session data.\n')
-                    firstlevelp = fullfile(firstlevelp,'regular',firstleveld);
+                    firstlevelp = fullfile(firstlevelp,'original',firstleveld);
                 elseif ~exist([derivp,filesep,trimf],'file') && use_trimmed
                     fprintf('Use_trimmed is true but no trimsession file was found.\nProceed with full session data.\n')
-                    firstlevelp = fullfile(firstlevelp,'regular',firstleveld);
+                    firstlevelp = fullfile(firstlevelp,'original',firstleveld);
                 elseif ~exist([derivp,filesep,trimf],'file') && ~use_trimmed
                     fprintf('Proceed with full session data.\n')
-                    firstlevelp = fullfile(firstlevelp,'regular',firstleveld);
+                    firstlevelp = fullfile(firstlevelp,'original',firstleveld);
                 end
                 
                 % Check for firstlevel directory and if it does not exist: create it

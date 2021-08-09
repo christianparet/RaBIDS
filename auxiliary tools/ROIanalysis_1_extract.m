@@ -17,11 +17,9 @@ addpath(genpath(folder));
 
 %% Define directories and initiate variables
 pos = 0;
-% firstleveldir = uigetdir(pwd,'Select firstlevel directory including the subject directories'); % directory containing child directories with each child containing an estimated firstlevel SPM.mat
-firstleveldir = 'Y:\Projects\EFPTest\Data_analysis\spm_analysis\firstlevel\ses-post\task-AllAvailable\efpmodel\repaired';
+firstleveldir = uigetdir(pwd,'Select firstlevel directory including the subject directories'); % directory containing child directories with each child containing an estimated firstlevel SPM.mat
 subdirs = dir([firstleveldir,filesep,'sub*']);
 maskdir = uigetdir(pwd,'Select directory containing binary brain mask files (*roi.mat)');
-% maskdir = 'Y:\Projects\EFPTest\Data_analysis\brain masks';
 
 %%
 if ~isempty(subdirs)

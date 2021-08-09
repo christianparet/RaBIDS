@@ -7,6 +7,8 @@ function out = create_sots(subject,task,data_analysis_path,source_data_path,ses_
 % - more flexibility to tolerate unexpected naming scheme in sourcedata directory structure
 % - richer error reporting
 
+% 2021/08/09: Import options for readtable function revisited to work in a more generic way
+
 %% Comment out if function in use
 % clear
 % clc
@@ -30,7 +32,8 @@ end
 
 try
     %% Define conditions
-    conddata = readtable(condfile,'ReadRowNames',true,'PreserveVariableNames',true,'NumHeaderLines',0);
+    opts = detectImportOptions(condfile,'DataRange','B2','RowNamesRange','A2','VariableNamesRange','B1');
+    conddata = readtable(condfile,opts);
     
     Namecol = find(strcmp(conddata.Properties.VariableNames,'Name'));
     OnsetIDcol = find(strcmp(conddata.Properties.VariableNames,'OnsetID'));
@@ -90,7 +93,7 @@ try
         if ~isfolder(logdir)
             logdir = [source_data_path,filesep,subject,filesep,ses_id];
             if ~isfolder(logdir)
-                out{dum,:} = 'Logfile directory not found.\Error #16\nContinue with next session.\n';
+                out{dum,:} = 'Logfile directory not found.\nError #16\nContinue with next session.\n';
                 return
             end
         end
