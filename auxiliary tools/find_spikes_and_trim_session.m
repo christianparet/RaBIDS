@@ -1,16 +1,11 @@
 %% Find spikes and trim session
 % Christian Paret, ZI Mannheim, 2021
-%
-% CAVE: current version is developed for efp-study and may not generalize to other studies
-%
+
 % The script assists in detecting outlier motions and trimming sessions before/after outlier motions. This can be useful if large motions are detected in the beginning or the end of a session, and if removal of images before/after that timepoint is not expected to lead to major data loss.
 % Before working with this script, framewise displacement parameters should be visually inspected for above-threshold motion. Affected sessions and tasks should be known by the user for efficient use.
 
 clear
 clc
-
-%% User input required
-fd_thresh = 4; % threshold for motion outlier based on framewise displacement parameter
 
 %% Read data from datasheet
 data = readtable('datasheet.xlsx','ReadRowNames',true,'PreserveVariableNames',true,'NumHeaderLines',0);
@@ -55,6 +50,9 @@ try
     end
 end
 
+%% Threshold for motion outlier based on framewise displacement parameter
+fd_thresh = input('Define threshold (mm) for outlier detection based on FD parameter.\n'); 
+
 %% What subject to work on
 reqsub = input('What subject to work on?\n');
 
@@ -66,55 +64,63 @@ reqtask = input('What task to work on?\n');
 
 %% Find motion outliers
 funcd = fullfile(derivd,reqsub,reqses,'func');
-conf_timeseriesf = [reqsub,'_',reqses,'_task-',reqtask,'_desc-confounds_timeseries.tsv'];
+conf_timeseriesf = dir(fullfile(funcd,'sub-*-confounds_*.tsv'));
 
-if isfile([funcd,filesep,conf_timeseriesf])
-    conf_table = readtable([funcd,filesep,conf_timeseriesf],'FileType','text','ReadRowNames',false,'PreserveVariableNames',true,'NumHeaderLines',0);
-    
-    close
-    plot(conf_table.framewise_displacement)
-    hold on
-    plot(1:length(conf_table.framewise_displacement),repmat(fd_thresh,length(conf_table.framewise_displacement))) % plot threshold as line
-    title([reqsub,' ',reqses,' ',reqtask]);
-    hold off
-    
-    spikes = find(conf_table.framewise_displacement>fd_thresh);
-    if spikes
-        fprintf(['Found ',num2str(length(spikes)),' spike(s):\n'])
-        for i = 1:length(spikes)
-            fprintf([' - Spike nr ',num2str(i,'%02d'),' at ',num2str(spikes(i),'%03d'),'.\n'])
-        end
-        trim = input('Trim session (Y/N)?\n');
-        if strcmp(trim,'Y')
-            trimbegin = input('1.) Enter spike nr after which to keep data. If you want to keep all data before a spike enter 0.');
-            trimend = input('2.) Enter spike nr after which to discard data. If you want to keep all data after a spike enter 0.');
-            
-            if ~trimbegin && ~trimend
-                fprintf('Your input reads as if you don''t want to discard any data.\n')
-                return
-            end
-            
-            if trimbegin
-                trimses(1) = spikes(trimbegin)+6;
-            else
-                trimses(1) = 1;
-            end
-            
-            if trimend
-                trimses(2) = spikes(trimend)-6;
-            else 
-                trimses(2) = length(conf_table.framewise_displacement);
-            end
-            
-            save([funcd,filesep,reqsub,'_',reqses,'_task-',reqtask,'_trimsession'],'trimses')
-            fprintf('Note: 5 more scans are discarded around the spike to prevent spurious signals.\nTrimsession file saved to derivatives directory.\n')
-        end
-    else
-        fprintf('No spikes detected.\n')
-    end    
+if ~isempty(conf_timeseriesf)
+    for funcs = 1:length(conf_timeseriesf)
+        pos1 = strfind(conf_timeseriesf(funcs).name,'task');
+        pos2 = strfind(conf_timeseriesf(funcs).name,'_desc-confounds');
+        taskid = conf_timeseriesf(funcs).name(pos1+5:pos2-1);
         
+        if strcmp(reqtask,taskid)
+            
+            conf_table = readtable(fullfile(funcd,conf_timeseriesf(funcs).name),'FileType','text','ReadRowNames',false,'PreserveVariableNames',true,'NumHeaderLines',0);
+
+            close
+            plot(conf_table.framewise_displacement)
+            hold on
+            plot(1:length(conf_table.framewise_displacement),repmat(fd_thresh,length(conf_table.framewise_displacement))) % plot threshold as line
+            title([reqsub,' ',reqses,' ',reqtask]);
+            hold off
+
+            spikes = find(conf_table.framewise_displacement>fd_thresh);
+            if spikes
+                fprintf(['Found ',num2str(length(spikes)),' spike(s):\n'])
+                for i = 1:length(spikes)
+                    fprintf([' - Spike nr ',num2str(i,'%02d'),' at ',num2str(spikes(i),'%03d'),'.\n'])
+                end
+                trim = input('Trim session (Y/N)?\n');
+                if strcmp(trim,'Y')
+                    trimbegin = input('1.) Enter spike nr after which to keep data. If you want to keep all data before a spike enter 0.');
+                    trimend = input('2.) Enter spike nr after which to discard data. If you want to keep all data after a spike enter 0.');
+
+                    if ~trimbegin && ~trimend
+                        fprintf('Your input reads as if you don''t want to discard any data.\n')
+                        return
+                    end
+
+                    if trimbegin
+                        trimses(1) = spikes(trimbegin)+1;
+                    else
+                        trimses(1) = 1;
+                    end
+
+                    if trimend
+                        trimses(2) = spikes(trimend)-1;
+                    else 
+                        trimses(2) = length(conf_table.framewise_displacement);
+                    end
+
+                    save([funcd,filesep,reqsub,'_',reqses,'_task-',reqtask,'_trimsession'],'trimses')
+                    fprintf('Trimsession file saved to derivatives directory.\n')
+                end
+            else
+                fprintf('No spikes detected.\n')
+            end    
+        end
+    end        
 else
-    fprintf('Could not find confounds-timeseries file for this subject/session/task.\n')
+    fprintf('No confounds found for this subject/session/task.\n')
 end
    
                 
