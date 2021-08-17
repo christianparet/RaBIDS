@@ -233,7 +233,7 @@ try
         writetable(events,eventsf,'Delimiter','tab','FileType','text')        
 
     else
-        out{dum,:} = 'SOTs file exists and permission to overwrite is false.\Continue with next step.\n';
+        out{dum,:} = 'SOTs file exists and permission to overwrite is false.\nContinue with next step.\n';
     end
     
 catch

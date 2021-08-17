@@ -5,6 +5,7 @@
 % Script can be used on firstlevel files produced with SPManalysis_3_firstlevel.m
 
 % It is ok to ignore matlab Warning message "Action '!ContextHelp' is deprecated.
+% You may change bin_size in the code defined below, default is bin_size = repetition time TR
 
 clear
 
@@ -86,7 +87,7 @@ if ~isempty(subdirs)
                     [e_specs, e_names] = event_specs(D);
                     n_events = size(e_specs, 2);
                     
-                    bin_size = tr(E)*2; % Bin size in seconds for FIR
+                    bin_size = tr(E)*1; % Bin size in seconds for FIR, set to minimum of bin_size = TR
                     opts = struct('single', 1, 'percent', 1); % Options - here �single� FIR model, return estimated % signal change
                     
                     for d_s = 1:n_events
