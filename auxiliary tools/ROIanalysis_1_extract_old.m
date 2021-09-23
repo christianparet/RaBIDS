@@ -5,6 +5,7 @@
 % Script can be used on firstlevel files produced with SPManalysis_3_firstlevel.m
 
 % It is ok to ignore matlab Warning message "Action '!ContextHelp' is deprecated.
+% You may change bin_size in the code defined below, default is bin_size = repetition time TR
 
 clear
 
@@ -16,10 +17,7 @@ folder = fileparts(which('marsbar'));
 addpath(genpath(folder));
 
 %% Define directories and initiate variables
-bin_size = 2; % define bin_size in seconds. 
-bufferseconds = 20; % add time (s) to sample BOLD signal following stimulus presentation
-writeheadercon = 1;
-writeheaderpsc = 1;
+pos = 0;
 firstleveldir = uigetdir(pwd,'Select firstlevel directory including the subject directories'); % directory containing child directories with each child containing an estimated firstlevel SPM.mat
 subdirs = dir([firstleveldir,filesep,'sub*']);
 maskdir = uigetdir(pwd,'Select directory containing binary brain mask files (*roi.mat)');
@@ -89,14 +87,14 @@ if ~isempty(subdirs)
                     [e_specs, e_names] = event_specs(D);
                     n_events = size(e_specs, 2);
                     
-%                     bin_size = tr(E)*2; % Bin size in seconds for FIR
+                    bin_size = tr(E)*1; % Bin size in seconds for FIR, set to minimum of bin_size = TR
                     opts = struct('single', 1, 'percent', 1); % Options - here �single� FIR model, return estimated % signal change
                     
                     for d_s = 1:n_events
                         alldur(d_s) = mean(spm_data.SPM.Sess.U(:,1).dur); % Caution: assuming that all events of a condition have similar duration
                     end
                     
-                    dur = max(alldur)+bufferseconds; % set duration to sample timecourses to maximum length needed. 
+                    dur = max(alldur)+12; % set duration to sample timecourses to maximum length needed. Add 12 s post stimulus offset
                     
                     notcdata = []; % initiate matrix to collect names of events (i.e. tasks) for which timecourses cannot be estimated
                     
@@ -121,9 +119,9 @@ if ~isempty(subdirs)
                 
                 %% Write tables (CP)
                 fprintf('Write results to tables.\n')
-                
-                if writeheadercon == 1
-                    writeheadercon = 0;
+                if pos == 0
+                    pos = pos+1;
+                    
                     % contrast file
                     % prepare header for contrast output file
                     [nr_cons,~]=size(marsS.con);
@@ -133,32 +131,8 @@ if ~isempty(subdirs)
                     end
                     % prepare variable coding output format of data
                     con_format=['\n%s',repmat('\t%6.4f',1,nr_cons)];
-                end
-                
-                % print contrast values to output file
-                fprintf(con_file,con_format,subdirs(sub).name(1:dum1-1),marsS.con);
-                
-                if psc_success                                       
-                    % write timecourse data to dummy matrix
-                    for e_t=1:n_events
-                        if ~any(strcmp(notcdata,e_names(e_t)))
-                            fir_tc_dum.tcs(e_t,:)=fir_tc(:,e_t); % timecourse data
-                            fir_tc_dum.conditions(e_t)=e_names(e_t); % get condition label
-                            %                             fir_tc_dum.vp=subdirs(sub).name(1:dum1-1);
-                            fitted_tc_dum.tcs(e_t,:)=fitted_tc(:,e_t); % timecourse data
-                            fitted_tc_dum.conditions(e_t)=e_names(e_t); % get condition label
-                            %                             fitted_tc_dum.vp=subdirs(sub).name(1:dum1-1);
-                        end
-                    end
-                end
-                
-                clear('D','R','Y','E','xCon','b','marsS','opts','fir_tc','fitted_tc','nr_cons','nr_betas');
-                
-                if psc_success
                     
-                    if writeheaderpsc == 1
-                        writeheaderpsc=0;
-                        
+                    if psc_success
                         % percent signal change file
                         % prepare header for contrast output file
                         [~,nr_betas]=size(e_names);
@@ -168,36 +142,60 @@ if ~isempty(subdirs)
                         end
                         % prepare variable coding output format of data
                         psc_format=['\n%s',repmat('\t%6.4f',1,nr_betas)];
-                        
-                        % prepare header for timecourse output files
-                        fprintf(fir_tc_file,'%s\t%s','subject','condition_label');
-                        for j=1:bin_no
-                            fprintf(fir_tc_file,'\t%s',int2str(j)); % print labels to header
-                        end
-                        
-                        fprintf(fitted_tc_file,'%s\t%s','subject','condition_label');
-                        [~,n_lines] = size(fitted_tc_dum.tcs); % look up nr of bins of first subject
-                        for j=1:n_lines
-                            fprintf(fitted_tc_file,'\t%s',int2str(j));
-                        end
-                        
-                        % prepare variables coding output format of data
-                        fir_tc_format=['\n%s\t%s',repmat('\t%6.4f',1,bin_no)];
-                        fitted_tc_format=['\n%s\t%s',repmat('\t%6.4f',1,n_lines)];
                     end
                     
+                end
+                
+                % print contrast values to output file
+                fprintf(con_file,con_format,subdirs(sub).name(1:dum1-1),marsS.con);
+                
+                if psc_success
                     % print psc values to output file
                     fprintf(psc_file,psc_format,subdirs(sub).name(1:dum1-1),pct_ev);
                     
-                    % print timecourse data to output file
+                    % write timecourse data to dummy matrix
                     for e_t=1:n_events
                         if ~any(strcmp(notcdata,e_names(e_t)))
-                            fprintf(fir_tc_file,fir_tc_format,subdirs(sub).name(1:dum1-1),fir_tc_dum.conditions{e_t},fir_tc_dum.tcs(e_t,:));
-                            fprintf(fitted_tc_file,fitted_tc_format,subdirs(sub).name(1:dum1-1),fitted_tc_dum.conditions{e_t},fitted_tc_dum.tcs(e_t,:));
+                            fir_tc_dum{pos}.tcs(e_t,:)=fir_tc(:,e_t); % timecourse data
+                            fir_tc_dum{pos}.conditions(e_t)=e_names(e_t); % get condition label
+                            fir_tc_dum{pos}.vp=subdirs(sub).name(1:dum1-1);
+                            fitted_tc_dum{pos}.tcs(e_t,:)=fitted_tc(:,e_t); % timecourse data
+                            fitted_tc_dum{pos}.conditions(e_t)=e_names(e_t); % get condition label
+                            fitted_tc_dum{pos}.vp=subdirs(sub).name(1:dum1-1);
+                        end
+                    end
+                end
+                
+                clear('D','R','Y','E','xCon','b','marsS','opts','fir_tc','fitted_tc','pct_ev','nr_cons','nr_betas');
+                
+                if psc_success
+                    % prepare header for timecourse output files
+                    fprintf(fir_tc_file,'%s\t%s','subject','condition_label');
+                    for j=1:bin_no
+                        fprintf(fir_tc_file,'\t%s',int2str(j)); % print labels to header
+                    end
+                    
+                    fprintf(fitted_tc_file,'%s\t%s','subject','condition_label');
+                    [~,n_lines] = size(fitted_tc_dum{1}.tcs); % look up nr of bins of first subject
+                    for j=1:n_lines
+                        fprintf(fitted_tc_file,'\t%s',int2str(j));
+                    end
+                    
+                    % prepare variables coding output format of data
+                    fir_tc_format=['\n%s\t%s',repmat('\t%6.4f',1,bin_no)];
+                    fitted_tc_format=['\n%s\t%s',repmat('\t%6.4f',1,n_lines)];
+                    
+                    % print timecourse data to output file
+                    for e_t=1:n_events
+                        for j=1:pos
+                            if ~any(strcmp(notcdata,e_names(e_t)))
+                                fprintf(fir_tc_file,fir_tc_format,subdirs(sub).name(1:dum1-1),fir_tc_dum{j}.conditions{e_t},fir_tc_dum{j}.tcs(e_t,:));
+                                fprintf(fitted_tc_file,fitted_tc_format,subdirs(sub).name(1:dum1-1),fitted_tc_dum{j}.conditions{e_t},fitted_tc_dum{j}.tcs(e_t,:));
+                            end
                         end
                     end
                     
-                    clear('fir_tc_dum', 'fitted_tc_dum','pct_ev')
+                    clear('fir_tc_dum', 'fitted_tc_dum')
                 else
                     fprintf('   No BOLD percent signal change and no time course data available.\n')
                     
@@ -205,7 +203,6 @@ if ~isempty(subdirs)
             else
                 fprintf('   No SPM.mat found for this subject.\n')
             end
-            
             
         end
         
@@ -223,7 +220,7 @@ if ~isempty(subdirs)
     ref_lit = 'Matthew Brett, Jean-Luc Anton, Romain Valabregue, Jean-Baptiste Poline. Region of interest analysis using an SPM toolbox [abstract] Presented at the 8th International Conference on Functional Mapping of the Human Brain, June 2-6, 2002, Sendai, Japan. Available on CD-ROM in NeuroImage, Vol 16, No 2.';
     if psc_success
         ref_web = 'ROI-percent-BOLD-signal-change txt file: To learn how percent signal change was calculated see http://marsbar.sourceforge.net/index.html';
-        fir_met = ['ROI-FIR-timecourse txt file: Timecourse was modeled with a Finite Impulse Response (FIR) function, start is stimulus onset, with bin size ',int2str(bin_size),' s (per unit on x-axis) and duration of ',int2str(dur),' s.'];
+        fir_met = ['ROI-FIR-timecourse txt file: Timecourse was modeled with a Finite Impulse Response (FIR) function, start is stimulus onset, with bin size ',int2str(bin_size),' s (per unit on x-axis) and duration of ',int2str(dur),' s. Note that bin size and duration correspond to parameters of the last subject and may differ for other subjects.'];
         fit_met = ['ROI-fitted-timecourse txt file: Timecourse was modeled with the HRF, start is stimulus onset, with duration of ',int2str(dur),' s.'];
     end
     ref_rabids = 'Extraction of data was run with an in-house matlab script called ROIanalysis_1_extract.m, available via https://github.com/christianparet/RaBIDS in the auxiliary tools directory.';
