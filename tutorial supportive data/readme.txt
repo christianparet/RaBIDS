@@ -1,0 +1,2 @@
+conditions_faces_new.xlsx
+this is a template with an example how an eoi f-contrast can be defined. There were some changes made in SPManalysis_2_firstlevel.m that requre contrast settings as they are outlined in this template. Refer to manual.

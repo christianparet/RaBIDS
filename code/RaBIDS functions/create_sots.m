@@ -8,6 +8,7 @@ function out = create_sots(subject,task,data_analysis_path,source_data_path,ses_
 % - richer error reporting
 
 % 2021/08/09: Import options for readtable function revisited to work in a more generic way
+% 2022/03: Import options for readtable function revisited to work in a more generic way: Mirus Jindrová added opts definitions
 
 %% Comment out if function in use
 % clear

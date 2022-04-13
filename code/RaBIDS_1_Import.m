@@ -3,6 +3,8 @@
 
 % Change log 
 
+% - opts input to readtable function added to preserve character variable type when reading data from datasheet (Miroslava Jindrova, 2022/03/04)
+
 % v0.2.2 
 % - added fieldmap import
 
@@ -29,10 +31,13 @@ fprintf('------ RaBIDS ---------- Rapid preparation of BIDS ------- is running -
 fprintf('For automated production of .json files during dicom import: open dicm2nii GUI and select option ''save json file''\n');
 
 %% Read data from datasheet
-data = readtable('datasheet.xlsx','ReadRowNames',true,'PreserveVariableNames',true,'NumHeaderLines',0);
+opts = detectImportOptions('datasheet.xlsx','NumHeaderLines',0);
+opts.PreserveVariableNames = 1;
+opts = setvartype(opts,3,'char');
+data = readtable('datasheet.xlsx',opts,'ReadRowNames',true);
 data_dir =  'dataset';
 
-max_series = 30; % N needs to be equal or larger maximum number of scan series in a subject; this could be improved in future versions
+max_series = 70; % N needs to be equal or larger maximum number of scan series in a subject; this could be improved in future versions
 
 descriptcol = find(strcmp(data.Properties.VariableNames,'Description'));
 userInputcol = find(strcmp(data.Properties.VariableNames,'UserInput'));
