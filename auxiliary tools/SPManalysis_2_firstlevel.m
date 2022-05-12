@@ -216,7 +216,7 @@ for subject = 1:length(allsubs)
                 end
                 
                 if spm_ok && multireg_ok && multicond_ok && deriv_ok
-                    fprintf('    \n    All model checks were done. Checking contrasts, if there are any defined...\n')
+                    fprintf('    \nAll model checks done. Now checking contrasts, if there are any defined...\n')
                     
                     %% Make and execute batch
                     % Define spm12 model
@@ -339,7 +339,7 @@ for subject = 1:length(allsubs)
                         contype = condata{contrastlines(i),ContrastTypecol}{:};
                             
                         if strcmp(contype,'eoi')
-                            fprintf(['    \nContrast ',condata{contrastlines(i),Namecol}{:},' is eoi F-contrast. Check below whether inclusion/exclusion of conditions is as expected.\n']);
+                            fprintf(['    \n    Contrast ',condata{contrastlines(i),Namecol}{:},' is eoi F-contrast. Check below whether inclusion/exclusion of conditions is as expected.\n']);
                             contype = 'fcon';
                             
                             % get conditions to include in eoi
@@ -380,7 +380,7 @@ for subject = 1:length(allsubs)
                             weights = eoimatrix;
                             
                         elseif strcmp(contype,'tcon')
-                            fprintf(['    \nContrast ',condata{contrastlines(i),Namecol}{:},' is a t-contrast.\n']); 
+                            fprintf(['    \n    Contrast ',condata{contrastlines(i),Namecol}{:},' is a t-contrast.\n']); 
                         
                             weights = [];
                             for j = 1:length(multiconddata.names)
@@ -416,8 +416,9 @@ for subject = 1:length(allsubs)
                     matlabbatch{3}.spm.stats.con.delete = 1;
                     
                     %% Estimate model
+                    fprintf('\nEstimate SPM model...\n');
                     spm_jobman('run', matlabbatch);
-                    fprintf('Model estimation successful!\n');
+                    fprintf('Model estimation successful!\nResults can be found here: %s.\n',firstlevelp);
                     clear matlabbatch
                 else
                     fprintf('\n    At least one of the checks above found an issue. Skipping session.\n')
@@ -427,4 +428,4 @@ for subject = 1:length(allsubs)
     end
 end
 
-fprintf('End.\n')
+fprintf('\nEnd.\n')
