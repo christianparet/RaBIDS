@@ -14,6 +14,7 @@
 % 2021/08/09: definition of variable minImagescol added (bug remove)
 % 2022/01/21: spm-firstlevel job: implemented check whether average of beta-weights for contrast specification is different from 0. In the future this code could be changed to return more specific information about consistency of SOTS and conditions_TaskID.xlsx-file
 % 2022/04/12: ObjectType ContrastType added: can be eoi or tcon
+% 2022/05/16: Is now able to run BIDS data that do not have a session-directory level within subject-directory
 
 clear
 clc
@@ -111,15 +112,24 @@ allsubs = dir([derivd,filesep,'sub-*']);
 for subject = 1:length(allsubs)
     if allsubs(subject).isdir
         allses = dir(fullfile(derivd,allsubs(subject).name,'ses-*'));
+
+        if isempty(allses)
+            allses(1).name = ''; % In case no session-subdirectories are found (which is possible if there was only one session): expect data in subject-directory
+            allses(1).isdir = 1;
+            namesep = '';
+        else
+            namesep = '_';
+        end
         
         for session = 1:length(allses)
             if allses(session).isdir
                 fprintf(['\nProcessing ',allsubs(subject).name,' ',allses(session).name,'.\n']);
+                subsesID = [allsubs(subject).name,namesep,allses(session).name];
                 
                 %% Define paths and do couple of checks before creating firstlevel model
                 
                 % Is there a Stimulus Onset Times file defining the stimulus protocol?
-                multicondf = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_multicond.mat'];
+                multicondf = [subsesID,'_task-',reqtask,'_multicond.mat'];
                 multicondp = fullfile(datasetd,allsubs(subject).name,allses(session).name,'func');
                 if isfile(fullfile(multicondp,multicondf))
                     multicond_ok = 1;
@@ -129,7 +139,7 @@ for subject = 1:length(allsubs)
                 end
                 
                 % Does a smoothed derivative image exist?
-                derivname = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_*desc-preproc_desc-s',smkernel,'_bold.nii'];
+                derivname = [subsesID,'_task-',reqtask,'_*desc-preproc_desc-s',smkernel,'_bold.nii'];
                 derivp = fullfile(derivd,allsubs(subject).name,allses(session).name,'func');
                 derivnii = dir(fullfile(derivp,derivname));
                 fprintf(['    Expecting derivative image ',derivnii.name,'.\n']);
@@ -181,7 +191,7 @@ for subject = 1:length(allsubs)
                 end
                 
                 % Check for trimsession file and define directory to write first-level SPM.mat
-                firstleveld = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask];
+                firstleveld = [subsesID,'_task-',reqtask];
                 firstlevelp = fullfile(data_analysis_path,'spm_analysis','firstlevel',allses(session).name,['task-',reqtask],'taskrelated_activity'); % recommend suffix "taskrelated_standard" for future analyses
                 trimf = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_trimsession.mat'];
                 trim = false; % set flag false as standard. Do now couple of checks to give detailed user feedback:
