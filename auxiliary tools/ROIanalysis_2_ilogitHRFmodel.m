@@ -10,16 +10,21 @@
 % First-level data should be prepared with the program SPManalysis_1_firstlevel.m, and BOLD signal data should be extracted with ROIanalysis_1_extract_eigenvariate.m. Both programs are available in the RaBIDS auxiliary tools.
 % Program expects to find BOLD signal data for the first subject in a file structure like this: E:\mytrainingdata\your project directory\spm_analysis\firstlevel\ses-01\task-faces\taskrelated_activity\original\sub-RABIDS01_ses-01_task-faces.
 % The matlab structure containing BOLD signal data is named sth like 'VOI_mask-RightAmygdala25_sess_1.mat'
+%
+% Cave: Program assumes that stimulus onsets are defined in unit seconds.
+%       Status 2022/05/16: Double-check of upsampling approach remains pending
+%       Check whether different resampleTRs as well as interpolation methods result in consistent HRF parameter outcomes
 
 %%
 clear
 clc
+diary off
 
 %% Add path to CanlabCore
 addpath(genpath('E:\CanlabCore\CanlabCore'));
 
 %% Settings
-VOIname = 'visualcortex'; % enter VOI name; e.g. if file name is VOI_mask-visualcortex_sess_1.mat: VOIname = 'visualcortex';
+VOIname = 'RightAmygdala25'; % enter VOI name; e.g. if file name is VOI_mask-visualcortex_sess_1.mat: VOIname = 'visualcortex';
 
 origTR = 2; % original TR in seconds
 resampleTR = 0.1; % resample to TR (seconds), should be in the order of stimulus onset time (SOT) resolution
@@ -30,9 +35,6 @@ FWHM = 4; % FWHM for residual scan
 pval = 0.01;
 df = 600;
 alpha = 0.001;
-
-%% Write some output to command window
-fprintf(['--------------- ROI analysis: Estimate ilogit HRF model (Lindquist & Wager, 2007) ---------------\n\nExtracted BOLD signal timecourse is from volume of interest: ',VOIname,'\nNote: Program can only handle SPM models with a single scanning session.\n\n']);
 
 %% Build HRF
 [xBF] = spm_get_bf(struct('dt', resampleTR, 'name', 'hrf (with time and dispersion derivatives)', 'length', 32));
@@ -51,12 +53,20 @@ hrf = hrf(1:length(xsecs));
 hrf = hrf ./ max(hrf);
 
 %% Define directories and initiate variables
-fail_counter = 1;
-firstleveldir = uigetdir(pwd,'Select firstlevel directory that includes the subject directories'); % directory containing child directories with each child containing an estimated firstlevel SPM.mat
+fprintf('Select directory containing subject directories with SPM.mat files.\nSomething like %s.','\mytrainingdata\your project directory\spm_analysis\firstlevel\ses-01\task-faces\taskrelated_activity\original')
+firstleveldir = uigetdir(pwd,'Select firstlevel directory that includes the subject directories. See command window for help.'); % directory containing child directories with each child containing an estimated firstlevel SPM.mat
 % firstleveldir = 'Y:\Projects\EFPTest\Data_analysis\spm_analysis\firstlevel\ses-pre\task-efptest\taskrelated_activity\repaired';
 subdirs = dir([firstleveldir,filesep,'sub*']);
 
+diaryfn = 'diary_ROIanalysis_2_ilogitHRFmodel.txt';
+diary(fullfile(firstleveldir,diaryfn)) % Write command window output to diary logfile
+
 subject_count = 1;
+
+%% Write some output to command window
+diary on
+fprintf(['--------------- ROI analysis: Estimate ilogit HRF model (Lindquist & Wager, 2007) ---------------\n\nExtracted BOLD signal timecourse is from volume of interest: ',VOIname,'\nNote: Program can only handle SPM models with a single scanning session.\n\n']);
+
 %%
 if ~isempty(subdirs)
     for sub = 1:length(subdirs)
@@ -78,6 +88,10 @@ if ~isempty(subdirs)
             spm_name = fullfile(firstleveldir,subdirs(sub).name,'SPM.mat');
 
             if exist(spm_name,'file') && exist(tcfile,'file')
+                
+                % write SubjectID vector for table output of group results
+                SubjectID{subject_count,:} = subdirs(sub).name(1:dum1-1); 
+
                 % Load BOLD timecourse to workspace
                 VOIdata = load(tcfile); % load timecourse to variable VOIdata
 
@@ -105,63 +119,100 @@ if ~isempty(subdirs)
 
                 %% Make output directory to save results to
                 outdir = fullfile(firstleveldir,subdirs(sub).name,VOIname,['InterpolateMethod_',interpolmeth]); % directory to save results to
-                fprintf('    Saving single-subject results to %s',outdir), fprintf('\n')
 
                 %% Check for existing file with estimated parameters
-                usepa = 'true';
+                usepa = 1; % variable usepa controls for existing parameter data
                 if exist(fullfile(outdir,'HRFmodeling.mat')) % was the model estimated before?
                     fprintf('    Found existing parameters logfile ''HRFmodeling.mat''.\n')
-                    load(fullfile(outdir,'HRFmodeling.mat')); % load model and check consistency with parameters
-                    if ~strcmp(parameters.subID,subdirs(sub).name(1:dum1-1))
-                        fprintf('     --> wrong subject ID, overwriting existing parameters logfile.\n')
-                        usepar = 'false';
-                    end
-                    if ~strcmp(parameters.VOIname,VOIname)
+                    prelim = load(fullfile(outdir,'HRFmodeling.mat')); % load model and check consistency with parameters
+%                     if ~strcmp(prelim.parameters.subID,subdirs(sub).name(1:dum1-1))
+%                         fprintf('     --> wrong subject ID, overwriting existing parameters logfile.\n')
+%                         usepa = 'false';
+%                     end
+                    if ~strcmp(prelim.parameters.VOIname,VOIname)
                         fprintf('     --> different VOI name, overwriting existing parameters logfile.\n')
-                        usepar = 'false';
+                        usepa = 0;
                     end
-                    if parameters.OriginalTR~=origTR
+                    if prelim.parameters.OriginalTR~=origTR
                         fprintf('     --> different original TR, overwriting existing parameters logfile.\n')
-                        usepar = 'false';
+                        usepa = 0;
                     end
-                    if parameters.InterpolateToTR~=resampleTR
+                    if prelim.parameters.InterpolateToTR~=resampleTR
                         fprintf('     --> interpolated to different TR, overwriting existing parameters logfile.\n')
-                        usepar = 'false';
+                        usepa = 0;
                     end
-                    if parameters.HRFLength~=T
+                    if prelim.parameters.HRFLength~=T
                         fprintf('     --> different HRF length ''T'', overwriting existing parameters logfile.\n')
-                        usepar = 'false';
+                        usepa = 0;
                     end
-                    if parameters.FWHM~=FWHM
+                    if prelim.parameters.FWHM~=FWHM
                         fprintf('     --> different FWHM, overwriting existing parameters logfile.\n')
-                        usepar = 'false';
+                        usepa = 0;
                     end
-                    if length(spmfile.SPM.Sess.U)~=length(parameters.conditions)
+                    if length(spmfile.SPM.Sess.U)~=length(prelim.parameters.conditions)
                         fprintf('     --> different number of conditions, overwriting existing parameters logfile.\n')
-                        usepar = 'false';
+                        usepa = 0;
                     else
                         for cond = 1:length(spmfile.SPM.Sess.U)
-                            if ~strcmp(parameters.conditions{cond},spmfile.SPM.Sess.U(cond).name)
+                            if ~strcmp(prelim.parameters.conditions{cond},spmfile.SPM.Sess.U(cond).name)
                                 fprintf('     --> different condition name, overwriting existing parameters logfile.\n')
-                                usepar = 'false';
+                                usepa = 0;
                                 break
                             end
                         end
                     end
+                    
                 else
                     mkdir(outdir); % assuming directory is missing
-                    parameters.subID = subdirs(sub).name(1:dum1-1); parameters.VOIname=VOIname; parameters.OriginalTR=origTR; parameters.InterpolateToTR=resampleTR; parameters.InterpolateMethod=interpolmeth; parameters.HRFLength=T; parameters.FWHM=FWHM;
-                    usepa = 'false';
+                    usepa = 0;
                 end
 
-                SubjectID{subject_count,:} = parameters.subID;
+                %% Retrieve or estimate HRF parameters
+                clear parameters % parameters from HRF modeling have been/will be written to structure called 'parameters'
 
-                %% Estimate HRF parameters
+                if usepa
+                    fprintf('    Existing meta-data is consistent with current settings.\n    Retrieving parameters....\n')
 
-                if strcmp(usepa,'false')
+                    % Feed matlab-structure "parameters" with existing subject data
+                    parameters.subID = subdirs(sub).name(1:dum1-1); parameters.VOIname=prelim.parameters.VOIname; 
+                    parameters.OriginalTR=prelim.parameters.OriginalTR;
+                    parameters.InterpolateToTR=prelim.parameters.InterpolateToTR;
+                    parameters.InterpolateMethod=prelim.parameters.InterpolateMethod; 
+                    parameters.HRFLength=prelim.parameters.HRFLength;
+                    parameters.FWHM=prelim.parameters.FWHM;
+                    parameters.conditions=prelim.parameters.conditions;
+                    parameters.ilogitHRF_AUC=prelim.parameters.ilogitHRF_AUC; 
+                    parameters.ilogitHRF_estimatedHRF=prelim.parameters.ilogitHRF_estimatedHRF; 
+                    parameters.ilogitHRF_Amplitude=prelim.parameters.ilogitHRF_Amplitude;
+                    parameters.ilogitHRF_TimeToPeak=prelim.parameters.ilogitHRF_TimeToPeak;
+                    parameters.ilogitHRF_Width=prelim.parameters.ilogitHRF_Width;
+                    parameters.ilogitHRF_Mismodeling=prelim.parameters.ilogitHRF_Mismodeling; 
+                    parameters.canonicalHRFandDV_AUC=prelim.parameters.canonicalHRFandDV_AUC; 
+                    parameters.canonicalHRFandDV_estimatedHRF=prelim.parameters.canonicalHRFandDV_estimatedHRF;
+                    parameters.canonicalHRFandDV_Amplitude=prelim.parameters.canonicalHRFandDV_Amplitude; 
+                    parameters.canonicalHRFandDV_TimeToPeak=prelim.parameters.canonicalHRFandDV_TimeToPeak;
+                    parameters.canonicalHRFandDV_Width=prelim.parameters.canonicalHRFandDV_Width; 
+                    parameters.canonicalHRFandDV_Mismodeling=prelim.parameters.canonicalHRFandDV_Mismodeling;
+
+                    if getFIR
+                        parameters.sFIR_AUC=prelim.parameters.sFIR_AUC; 
+                        parameters.sFIR_estimatedHRF=prelim.parameters.sFIR_estimatedHRF;
+                        parameters.sFIR_Amplitude=prelim.parameters.sFIR_Amplitude; 
+                        parameters.sFIR_TimeToPeak=prelim.parameters.sFIR_TimeToPeak; 
+                        parameters.sFIR_Width=prelim.parameters.sFIR_Width;
+                        parameters.sFIR_Mismodeling=prelim.parameters.sFIR_Mismodeling; 
+                    end
+
+                else
                     % If parameters have not been estimated yet: estimate HRF
+                    fprintf('    Results of HRF modeling will be saved to: %s',outdir), fprintf('\n')
+
+                    % Feed matlab-structure "parameters" with meta-data defined above for HRF estimation
+                    parameters.subID = subdirs(sub).name(1:dum1-1); parameters.VOIname=VOIname; parameters.OriginalTR=origTR; parameters.InterpolateToTR=resampleTR; parameters.InterpolateMethod=interpolmeth; parameters.HRFLength=T; parameters.FWHM=FWHM;
+
                     for cond = 1:length(spmfile.SPM.Sess.U) % run through all conditions
                         parameters.conditions(cond) = spmfile.SPM.Sess.U(cond).name;
+                        fprintf('    Processing condition ''%s''',parameters.conditions{cond}), fprintf('\n')
 
                         % Visualize result of interpolation
                         [f1,~] = create_figure; subplot(3,1,1);
@@ -334,25 +385,48 @@ if ~isempty(subdirs)
                 % Run through all conditions in order to create a string variable listing all parameter variables. Create string-variable which is an executable command for producing a vector with all parameters included. Use eval command to execute the string as a matlab command.
                 for cond = 1:length(parameters.conditions)
                     % Inverse logit HRF parameters
-                    eval([parameters.conditions{cond},'_IL_Amplitude(subject_count,1) = ', num2str(parameters.ilogitHRF_Amplitude(cond)),';']);
-                    eval([parameters.conditions{cond},'_IL_TimeToPeak(subject_count,1) = ', num2str(parameters.ilogitHRF_TimeToPeak(cond)),';']);
-                    eval([parameters.conditions{cond},'_IL_Width(subject_count,1) = ', num2str(parameters.ilogitHRF_Width(cond)),';']);
-                    eval([parameters.conditions{cond},'_IL_AUC(subject_count,1) = ', num2str(parameters.ilogitHRF_AUC(cond)),';']);
-                    eval([parameters.conditions{cond},'_IL_Mismodeling(subject_count,1) = ', num2str(parameters.ilogitHRF_Mismodeling(cond)),';']);
+                    eval(sprintf('%s_IL_Amplitude(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.ilogitHRF_Amplitude(cond)));
+                    eval(sprintf('%s_IL_TimeToPeak(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.ilogitHRF_TimeToPeak(cond)));
+                    eval(sprintf('%s_IL_Width(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.ilogitHRF_Width(cond)));
+                    eval(sprintf('%s_IL_AUC(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.ilogitHRF_AUC(cond)));
+                    eval(sprintf('%s_IL_Mismodeling(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.ilogitHRF_Mismodeling(cond)));
+
                     % Canonical HRF + 2 derivative parameters
-                    eval([parameters.conditions{cond},'_canonical_Amplitude(subject_count,1) = ', num2str(parameters.canonicalHRFandDV_Amplitude(cond)),';']);
-                    eval([parameters.conditions{cond},'_canonical_TimeToPeak(subject_count,1) = ', num2str(parameters.canonicalHRFandDV_TimeToPeak(cond)),';']);
-                    eval([parameters.conditions{cond},'_canonical_Width(subject_count,1) = ', num2str(parameters.canonicalHRFandDV_Width(cond)),';']);
-                    eval([parameters.conditions{cond},'_canonical_AUC(subject_count,1) = ', num2str(parameters.canonicalHRFandDV_AUC(cond)),';']);
-                    eval([parameters.conditions{cond},'_canonical_Mismodeling(subject_count,1) = ', num2str(parameters.canonicalHRFandDV_Mismodeling(cond)),';']);
+                    eval(sprintf('%s_canonical_Amplitude(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.canonicalHRFandDV_Amplitude(cond)));
+                    eval(sprintf('%s_canonical_TimeToPeak(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.canonicalHRFandDV_TimeToPeak(cond)));
+                    eval(sprintf('%s_canonical_Width(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.canonicalHRFandDV_Width(cond)));
+                    eval(sprintf('%s_canonical_AUC(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.canonicalHRFandDV_AUC(cond)));
+                    eval(sprintf('%s_canonical_Mismodeling(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.canonicalHRFandDV_Mismodeling(cond)));
+
                     if getFIR
                         % sFIR HRF parameters
-                        eval([parameters.conditions{cond},'_sFIR_Amplitude(subject_count,1) = ', num2str(parameters.sFIR_Amplitude(cond)),';']);
-                        eval([parameters.conditions{cond},'_sFIR_TimeToPeak(subject_count,1) = ', num2str(parameters.sFIR_TimeToPeak(cond)),';']);
-                        eval([parameters.conditions{cond},'_sFIR_Width(subject_count,1) = ', num2str(parameters.sFIR_Width(cond)),';']);
-                        eval([parameters.conditions{cond},'_sFIR_AUC(subject_count,1) = ', num2str(parameters.sFIR_AUC(cond)),';']);
-                        eval([parameters.conditions{cond},'_sFIR_Mismodeling(subject_count,1) = ', num2str(parameters.sFIR_Mismodeling(cond)),';']);
+                        eval(sprintf('%s_sFIR_Amplitude(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.sFIR_Amplitude(cond)));
+                        eval(sprintf('%s_sFIR_TimeToPeak(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.sFIR_TimeToPeak(cond)));
+                        eval(sprintf('%s_sFIR_Width(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.sFIR_Width(cond)));
+                        eval(sprintf('%s_sFIR_AUC(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.sFIR_AUC(cond)));
+                        eval(sprintf('%s_sFIR_Mismodeling(subject_count,1) = %.4f;', parameters.conditions{cond},parameters.sFIR_Mismodeling(cond)));
                     end
+
+%                     eval([parameters.conditions{cond},'_IL_Amplitude(subject_count,1) = ', num2str(parameters.ilogitHRF_Amplitude(cond)),';']);
+%                     eval([parameters.conditions{cond},'_IL_TimeToPeak(subject_count,1) = ', num2str(parameters.ilogitHRF_TimeToPeak(cond)),';']);
+%                     eval([parameters.conditions{cond},'_IL_Width(subject_count,1) = ', num2str(parameters.ilogitHRF_Width(cond)),';']);
+%                     eval([parameters.conditions{cond},'_IL_AUC(subject_count,1) = ', num2str(parameters.ilogitHRF_AUC(cond)),';']);
+%                     eval([parameters.conditions{cond},'_IL_Mismodeling(subject_count,1) = ', num2str(parameters.ilogitHRF_Mismodeling(cond)),';']);
+%                     
+%                     eval([parameters.conditions{cond},'_canonical_Amplitude(subject_count,1) = ', num2str(parameters.canonicalHRFandDV_Amplitude(cond)),';']);
+%                     eval([parameters.conditions{cond},'_canonical_TimeToPeak(subject_count,1) = ', num2str(parameters.canonicalHRFandDV_TimeToPeak(cond)),';']);
+%                     eval([parameters.conditions{cond},'_canonical_Width(subject_count,1) = ', num2str(parameters.canonicalHRFandDV_Width(cond)),';']);
+%                     eval([parameters.conditions{cond},'_canonical_AUC(subject_count,1) = ', num2str(parameters.canonicalHRFandDV_AUC(cond)),';']);
+%                     eval([parameters.conditions{cond},'_canonical_Mismodeling(subject_count,1) = ', num2str(parameters.canonicalHRFandDV_Mismodeling(cond)),';']);
+
+%                     if getFIR
+%                         % sFIR HRF parameters
+%                         eval([parameters.conditions{cond},'_sFIR_Amplitude(subject_count,1) = ', num2str(parameters.sFIR_Amplitude(cond)),';']);
+%                         eval([parameters.conditions{cond},'_sFIR_TimeToPeak(subject_count,1) = ', num2str(parameters.sFIR_TimeToPeak(cond)),';']);
+%                         eval([parameters.conditions{cond},'_sFIR_Width(subject_count,1) = ', num2str(parameters.sFIR_Width(cond)),';']);
+%                         eval([parameters.conditions{cond},'_sFIR_AUC(subject_count,1) = ', num2str(parameters.sFIR_AUC(cond)),';']);
+%                         eval([parameters.conditions{cond},'_sFIR_Mismodeling(subject_count,1) = ', num2str(parameters.sFIR_Mismodeling(cond)),';']);
+%                     end
 
                     % Write estimated HRF timecourse: write each time bin to separate varialble
                     for bin = 1:length(parameters.ilogitHRF_estimatedHRF) % assuming all HRFs have same length
@@ -379,10 +453,12 @@ if ~isempty(subdirs)
     fprintf('    Saving group results to %s\n',outdir2)
 
     if exist(outdir2,'dir')
-        fprintf('    Output directory for group results already exists. Overwriting existing files.\n')
+        fprintf('    Output directory for group results already exists.\n    Overwriting existing files...\n')
     else
         mkdir(outdir2)
     end
+
+    fprintf(['    Command window output is written to file ',diaryfn,' and is saved next to the subject directories.\n'])
 
     if getFIR
         getFIRtable = 'SubjectID';
@@ -439,3 +515,6 @@ if ~isempty(subdirs)
 else
     fprintf('    No subject directories found in selected directory.\n')
 end
+
+fprintf('End.\n')
+diary off
