@@ -13,6 +13,8 @@
 % (i.e., with subject directories having func directories on next lower
 % hierarchy.
 
+clear
+
 %% Read data from datasheet
 data = readtable('datasheet.xlsx','ReadRowNames',true,'PreserveVariableNames',true,'NumHeaderLines',0);
 AddPathline = find(contains(data.Properties.RowNames,'add path'));

@@ -15,6 +15,7 @@
 % 2022/01/21: spm-firstlevel job: implemented check whether average of beta-weights for contrast specification is different from 0. In the future this code could be changed to return more specific information about consistency of SOTS and conditions_TaskID.xlsx-file
 % 2022/04/12: ObjectType ContrastType added: can be eoi or tcon
 % 2022/05/16: Is now able to run BIDS data that do not have a session-directory level within subject-directory
+% 2022/09/09: opts input added to readtable function in order to preserve character variable type when reading data from datasheet (Miroslava Jindrova, 2022/03/04)
 
 clear
 clc
@@ -31,7 +32,11 @@ get_realign = true; % 6 realignment regressors (3 translation, 3 rotation parame
 get_outlier = false; % motion outlier "spike" regressors
 
 %% Read data from datasheet
-data = readtable('datasheet.xlsx','ReadRowNames',true,'PreserveVariableNames',true,'NumHeaderLines',0);
+opts = detectImportOptions('datasheet.xlsx','NumHeaderLines',0);
+opts.PreserveVariableNames = 1;
+opts = setvartype(opts,3,'char');
+data = readtable('datasheet.xlsx',opts,'ReadRowNames',true);
+
 userInputcol = find(strcmp(data.Properties.VariableNames,'UserInput'));
 DataAnalysisPathline = find(strcmp(data.Properties.RowNames,'data analysis path'));
 data_analysis_path = data{DataAnalysisPathline,userInputcol}{:};

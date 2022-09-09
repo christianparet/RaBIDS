@@ -24,12 +24,12 @@ diary off
 addpath(genpath('E:\CanlabCore\CanlabCore'));
 
 %% Settings
-VOIname = 'RightAmygdala25'; % enter VOI name; e.g. if file name is VOI_mask-visualcortex_sess_1.mat: VOIname = 'visualcortex';
+VOIname = 'Right Amygdala 25'; % enter VOI name; e.g. if file name is VOI_mask-visualcortex_sess_1.mat: VOIname = 'visualcortex';
 
 origTR = 2; % original TR in seconds
 resampleTR = 0.1; % resample to TR (seconds), should be in the order of stimulus onset time (SOT) resolution
 interpolmeth = 'spline'; % spline, pchip or makima. Not clear which one is better
-getFIR = 0; % FIR fitting fails with resampleTR<0.01
+getFIR = 1; % FIR fitting fails with resampleTR<0.01
 T = 30; % unit=seconds
 FWHM = 4; % FWHM for residual scan
 pval = 0.01;
@@ -65,7 +65,7 @@ subject_count = 1;
 
 %% Write some output to command window
 diary on
-fprintf(['--------------- ROI analysis: Estimate ilogit HRF model (Lindquist & Wager, 2007) ---------------\n\nExtracted BOLD signal timecourse is from volume of interest: ',VOIname,'\nNote: Program can only handle SPM models with a single scanning session.\n\n']);
+fprintf(['\n\n--------------- ROI analysis: Estimate ilogit HRF model (Lindquist & Wager, 2007) ---------------\n\nExtracted BOLD signal timecourse is from volume of interest: ',VOIname,'\nNote: Program can only handle SPM models with a single scanning session.\n\n']);
 
 %%
 if ~isempty(subdirs)
@@ -461,12 +461,12 @@ if ~isempty(subdirs)
     fprintf(['    Command window output is written to file ',diaryfn,' and is saved next to the subject directories.\n'])
 
     if getFIR
-        getFIRtable = 'SubjectID';
+        getsFIRtable = 'SubjectID';
         % Run through all conditions in order to create a string variable listing all parameter variables
         for cond = 1:length(parameters.conditions)
             % Create string-variable which is an executable command for producing a vector with all parameters included. Use eval command to execute the string as a matlab command.
             eval(sprintf('getparamtable = [getparamtable,'', %s_IL_Amplitude'','', %s_IL_TimeToPeak'','', %s_IL_Width'','', %s_IL_AUC'','', %s_IL_Mismodeling'','', %s_canonical_Amplitude'','', %s_canonical_TimeToPeak'','', %s_canonical_Width'','', %s_canonical_AUC'','', %s_canonical_Mismodeling'','', %s_sFIR_Amplitude'','', %s_sFIR_TimeToPeak'','', %s_sFIR_Width'','', %s_sFIR_AUC'','', %s_sFIR_Mismodeling''];',...
-                repmat(parameters.conditions{cond},[1,15])));
+                parameters.conditions{cond},parameters.conditions{cond},parameters.conditions{cond},parameters.conditions{cond},parameters.conditions{cond},parameters.conditions{cond},parameters.conditions{cond},parameters.conditions{cond},parameters.conditions{cond},parameters.conditions{cond},parameters.conditions{cond},parameters.conditions{cond},parameters.conditions{cond},parameters.conditions{cond},parameters.conditions{cond}));
             for bin = 1:length(parameters.ilogitHRF_estimatedHRF) % assuming all HRFs have same length
                 % Create string-variable which is an executable command for producing a vector with all parameters included. Use eval command to execute the string as a matlab command.
                 eval(sprintf('getILtable = [getILtable,'', %s_IL_bin_%04d''];',parameters.conditions{cond},bin));
@@ -474,7 +474,7 @@ if ~isempty(subdirs)
                 eval(sprintf('getsFIRtable = [getsFIRtable,'', %s_sFIR_bin_%04d''];',parameters.conditions{cond},bin));
             end
         end
-        eval(['sFIR_estimated_timecourse = table(',getFIRtable,');']);
+        eval(['sFIR_estimated_tc = table(',getsFIRtable,');']);
         writetable(sFIR_estimated_tc,fullfile(outdir2,'sFIR_estimated_tc.txt'),'Delimiter','tab');
     else
         % Run through all conditions in order to create a string variable listing all parameter variables
