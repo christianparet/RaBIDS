@@ -1,3 +1,4 @@
+[![DOI](https://zenodo.org/badge/246063967.svg)](https://zenodo.org/badge/latestdoi/246063967)
 # RaBIDS
 Rapid, automated conversion to Brain Imaging Data Structure (BIDS) 
 
