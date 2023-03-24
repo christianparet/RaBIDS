@@ -1,5 +1,5 @@
-# raBIDS
-rapid, automated conversion to Brain Imaging Data Structure (BIDS) 
+# RaBIDS
+Rapid, automated conversion to Brain Imaging Data Structure (BIDS) 
 
 ## Welcome!
 Thank you for looking at this code repository! I hope you find the content helpful.
