@@ -14,8 +14,7 @@
 % 2021/08/09: definition of variable minImagescol added (bug remove)
 % 2022/01/21: spm-firstlevel job: implemented check whether average of beta-weights for contrast specification is different from 0. In the future this code could be changed to return more specific information about consistency of SOTS and conditions_TaskID.xlsx-file
 % 2022/04/12: ObjectType ContrastType added: can be eoi or tcon
-% 2022/05/16: Is now able to run BIDS data that do not have a session-directory level within subject-directory
-% 2022/09/09: opts input added to readtable function in order to preserve character variable type when reading data from datasheet (Miroslava Jindrova, 2022/03/04)
+% 2023/04/11: Removed programming error where contrast weights are produced. More than two conditions can be used to define a contrast (i.e., 1 or more conditions can be weighted positive and negative in a contrast). Added options for definition of contrasts that became availabe with SplitCondition option
 
 clear
 clc
@@ -32,11 +31,7 @@ get_realign = true; % 6 realignment regressors (3 translation, 3 rotation parame
 get_outlier = false; % motion outlier "spike" regressors
 
 %% Read data from datasheet
-opts = detectImportOptions('datasheet.xlsx','NumHeaderLines',0);
-opts.PreserveVariableNames = 1;
-opts = setvartype(opts,3,'char');
-data = readtable('datasheet.xlsx',opts,'ReadRowNames',true);
-
+data = readtable('datasheet.xlsx','ReadRowNames',true,'PreserveVariableNames',true,'NumHeaderLines',0);
 userInputcol = find(strcmp(data.Properties.VariableNames,'UserInput'));
 DataAnalysisPathline = find(strcmp(data.Properties.RowNames,'data analysis path'));
 data_analysis_path = data{DataAnalysisPathline,userInputcol}{:};
@@ -102,7 +97,6 @@ reqtask = input('What task to work on? Enter a single task name (e.g. ''faces'')
 %% Define contrasts
 condfile = ['conditions_',reqtask,'.xlsx'];
 condata = readtable(fullfile(datasetd,'code',condfile),'ReadRowNames',true,'ReadVariableNames',true,'NumHeaderLines',0);
-conditionlines = find(contains(condata.Properties.RowNames,'Condition'));
 
 Namecol = find(strcmp(condata.Properties.VariableNames,'Name'));
 ContrastTypecol = find(strcmp(condata.Properties.VariableNames,'ContrastType'));
@@ -197,7 +191,7 @@ for subject = 1:length(allsubs)
                 
                 % Check for trimsession file and define directory to write first-level SPM.mat
                 firstleveld = [subsesID,'_task-',reqtask];
-                firstlevelp = fullfile(data_analysis_path,'spm_analysis','firstlevel',allses(session).name,['task-',reqtask],'taskrelated_activity'); % recommend suffix "taskrelated_standard" for future analyses
+                firstlevelp = fullfile(data_analysis_path,'spm_analysis','firstlevel',allses(session).name,['task-',reqtask],'taskrelated_standard'); % recommend suffix "taskrelated_standard" for future analyses
                 trimf = [allsubs(subject).name,'_',allses(session).name,'_task-',reqtask,'_trimsession.mat'];
                 trim = false; % set flag false as standard. Do now couple of checks to give detailed user feedback:
                 
@@ -248,6 +242,7 @@ for subject = 1:length(allsubs)
                     % discard all stimuli of a condition - this has not
                     % been tested and my require to clear empty cells after
                     % adjustment of stimulus timing below
+           
                     if trim
                         load(fullfile(derivp,trimf)) % 1-by-2 vector with information of first/last scan to use; see script "find_spikes_and_trim_session.m"
                         firstscan = trimses(1);
@@ -371,11 +366,11 @@ for subject = 1:length(allsubs)
                             end
                             
                             % make weight-matrix with as many rows as there are conditions, and as many colomns as there are eois
-                            eoimatrix = eye(length(conditionlines));
+                            eoimatrix = eye(length(multiconddata.names));
                             
                             includecon = [];
-                            for j = 1:length(conditionlines)
-                                checkcond = condata{conditionlines(j),Namecol}{:};
+                            for j = 1:length(multiconddata.names)
+                                checkcond = multiconddata.names{j};
                                 fprintf(['      Found condition ''',checkcond,'''.\n'])
                                 for k = 1:length(eoicond)
                                     if strcmp(checkcond,eoicond{k})
@@ -396,21 +391,47 @@ for subject = 1:length(allsubs)
                             
                         elseif strcmp(contype,'tcon')
                             fprintf(['    \n    Contrast ',condata{contrastlines(i),Namecol}{:},' is a t-contrast.\n']); 
+
+                            % get conditions to include in contrast: conditions with positive weigth
+                            dum1 = condata{contrastlines(i),ContrastPlus1col}{:};
+                            condstr = dum1(~isspace(dum1));
+                            separator = [0 strfind(condstr,';')]; % conditions are separated by semicolon
+                            if length(separator) > 1
+                                for j = 1:length(separator)-1
+                                    tconpluscond{j} = condstr(separator(j)+1:separator(j+1)-1);
+                                end
+                                tconpluscond{j+1} = condstr(separator(j+1)+1:end);
+                            else
+                                tconpluscond{1} = condstr;
+                            end
+
+                            % get conditions to include in contrast: conditions with negative weigth
+                            dum1 = condata{contrastlines(i),ContrastMinus1col}{:};
+                            condstr = dum1(~isspace(dum1));
+                            separator = [0 strfind(condstr,';')]; % conditions are separated by semicolon
+                            if length(separator) > 1
+                                for j = 1:length(separator)-1
+                                    tconminuscond{j} = condstr(separator(j)+1:separator(j+1)-1);
+                                end
+                                tconminuscond{j+1} = condstr(separator(j+1)+1:end);
+                            else
+                                tconminuscond{1} = condstr;
+                            end
                         
                             weights = [];
                             for j = 1:length(multiconddata.names)
-                                if strcmp(condata{contrastlines(i),ContrastPlus1col}{:},multiconddata.names{j})
+                                if any(ismember(tconpluscond,multiconddata.names{j}))
                                     weights = [weights 1];
-                                elseif strcmp(condata{contrastlines(i),ContrastMinus1col}{:},multiconddata.names{j})
+                                elseif any(ismember(tconminuscond,multiconddata.names{j}))
                                     weights = [weights -1];
-                                elseif sum(weights)~=0
-                                    fprintf(['    -------- CAVE -------\n        Weights of contrast ',condata{contrastlines(i),Namecol}{:},' do not average to 0.\n        If this is unexpected it is recommended to check ',condfile,' for consistency with stimulus onset times (sots)!    \n------------------------\n']);
                                 else
                                     weights = [weights 0];
                                 end
                             end
 
-                            if ~any(weights)
+                            if sum(weights)~=0
+                                    fprintf(['    -------- CAVE -------\n        Weights of contrast ',condata{contrastlines(i),Namecol}{:},' do not average to 0.\n        If this is unexpected it is recommended to check ',condfile,' for consistency with stimulus onset times (sots)!    \n------------------------\n']);
+                            elseif ~any(weights)
                                 fprintf(['    Contrast ',condata{contrastlines(i),Namecol}{:},' is invalid.\n']);
                                 return
                             end
