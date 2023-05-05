@@ -1,5 +1,5 @@
 function out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subject,suff,ses_id,study_identifier,data_analysis_path,series,series_n,addsub,overwrite)
-% v0.2.2 release
+% Most recently updated for v0.2.2 release
 
 % Uses dicm2nii toolbox to import dicom-images to nifti-format
 % Folder structure in BIDS format is produced, for more information see: Gorgolewski, K. J. et al., Sci. Data 3:160044, doi: 10.1038/sdata.2016.44 (2016)
@@ -8,7 +8,7 @@ function out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subject,suff,ses
 
 % Change log from v0.1:
 % - implemented json-output check
-% - implemented Error-reporting
+% - implemented Warning-reporting
 % - account for nii.gz
 
 %% Comment out if function in use
@@ -39,7 +39,7 @@ elseif strcmp(HowExpectDicoms,'BIDS')
         dicomd = [dicomdir,filesep,subject,filesep,ses_id];
     end
 else
-    out{dum,:} = 'User input to object type ''dicom'' not allowed.\nError #7\nProgram stops.\n';
+    out{dum,:} = 'User input to object type ''dicom'' not allowed.\nWarning #7\nProgram stops.\n';
     return
 end
 
@@ -97,7 +97,7 @@ try
     try
         movefile([subject_dir,filesep,'anat',filesep,fn,'.json'],[subject_dir,filesep,'anat',filesep,prefix,subject,write_ses,'T1w.json']);
     catch
-        out{dum,:} = 'Nifit-supporting json-file not found.\nSwitch on json-output via dicm2nii.\nError #10\n\n';
+        out{dum,:} = 'Nifit-supporting json-file not found.\nSwitch on json-output via dicm2nii.\nWarning #10\n\n';
         dum = dum + 1;
     end
 
@@ -105,6 +105,6 @@ try
     return
         
 catch
-    out{dum,:} = 'Scans for this task were not found for subject/session.\nError #8\n';
+    out{dum,:} = 'Scans for this task were not found for subject/session.\nWarning #8\n';
     return
 end

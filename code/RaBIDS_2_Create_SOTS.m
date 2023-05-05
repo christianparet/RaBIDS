@@ -1,5 +1,5 @@
 %% RaBIDS - Rapid analysis with BIDS
-% v0.2.2 release
+% Most recently updated for v0.3 release
 
 %% Create SOTS
 % Chris Paret, ZI Mannheim, 2019-2021; christian.paret@zi-mannheim.de

@@ -1,6 +1,6 @@
 function out = create_sots(subject,task,data_analysis_path,source_data_path,ses_id,addsub,firstpulse,condfile,overwrite)
-% Create_SOTS by C. Paret, ZI-Mannheim, 2019-2022
-% v0.2.3 release
+% Create_SOTS by C. Paret, ZI-Mannheim, 2019-2023
+% Most recently updated for v0.3 release
 
 % 2021/08/09: Import options for readtable function revisited to work in a more generic way
 % 2022/03 & 2023/04: Import options for readtable function revisited to work in a more generic way: Mirus Jindrová added opts definitions
@@ -49,7 +49,7 @@ try
                 
         if ismissing(conddata{condlines(i),Durationcol})
             if ismissing(conddata{condlines(i),OffsetIDcol})
-                out{dum,:} = ['Duration and OffsetID not defined for condition ',allcond{i}.Name,'.\nError #4.\nProgram stops\n'];
+                out{dum,:} = ['Duration and OffsetID not defined for condition ',allcond{i}.Name,'.\nWarning #4.\nProgram stops\n'];
                 return
             else
                 allcond{i}.OffsetID = conddata{condlines(i),OffsetIDcol}{:};
@@ -80,7 +80,7 @@ try
         if ~isfolder(logdir)
             logdir = [source_data_path,filesep,subject];
             if ~isfolder(logdir)
-                out{dum,:} = 'Logfile directory not found.\Error #16\nContinue with next session.\n';
+                out{dum,:} = 'Logfile directory not found.\Warning #16\nContinue with next session.\n';
                 return
             end
         end
@@ -94,7 +94,7 @@ try
         if ~isfolder(logdir)
             logdir = [source_data_path,filesep,subject,filesep,ses_id];
             if ~isfolder(logdir)
-                out{dum,:} = 'Logfile directory not found.\nError #16\nContinue with next session.\n';
+                out{dum,:} = 'Logfile directory not found.\nWarning #16\nContinue with next session.\n';
                 return
             end
         end
@@ -124,18 +124,18 @@ try
                 filename = [prefix,filename];
                 logfile = dir([logdir,filesep,filename]);
             else
-                out{dum,:} = 'Logfile not found.\nError #15\nContinue with next session.\n';
+                out{dum,:} = 'Logfile not found.\nWarning #15\nContinue with next session.\n';
                 return
             end
         elseif strcmp(LogFormat,'free')
             filename = [LogID,'.log'];
             logfile = dir([logdir,filesep,filename]);
             if isempty(logfile)
-                out{dum,:} = 'Logfile not found.\nError #15\nContinue with next session.\n';
+                out{dum,:} = 'Logfile not found.\nWarning #15\nContinue with next session.\n';
                 return
             end          
         else
-            out{dum,:} = 'User input to object type ''Logfile ID format'' in conditions_TaskName.xlsx is invalid.\nError #5.\nProgram stops.\\n';
+            out{dum,:} = 'User input to object type ''Logfile ID format'' in conditions_TaskName.xlsx is invalid.\nWarning #5.\nProgram stops.\\n';
             return
         end
         
@@ -144,7 +144,7 @@ try
             out{dum,:} = ['Use logfile ',logfile.name,'\n'];
             dum=dum+1;
         catch
-            out{dum,:} = 'Cannot read logfile.\nError #6.\nContinue with next session.\n\n';
+            out{dum,:} = 'Cannot read logfile.\nWarning #6.\nContinue with next session.\n\n';
             return
         end
         
@@ -191,7 +191,7 @@ try
 %                                     out{dum,:} = ['No duration defined for condition: ', allcond{i}.Name,'. OffsetID is used.\n'];
 %                                     dum = dum + 1;
                                 else % Duration or offset ID must be defined, otherwise: force function to stop
-                                    out{dum,:} = ['Duration and OffsetID definition missing for condition ', allcond{i}.Name,'.\nError #4.\nProgram stops.\n'];
+                                    out{dum,:} = ['Duration and OffsetID definition missing for condition ', allcond{i}.Name,'.\nWarning #4.\nProgram stops.\n'];
                                     dum = dum + 1;
                                     return
                                 end
@@ -280,5 +280,5 @@ try
     end
     
 catch
-    out{dum,:} = 'Error #3.\nProgram stops\n';
+    out{dum,:} = 'Warning #3.\nProgram stops\n';
 end

@@ -1,5 +1,5 @@
 function out = import2nifti_functional(HowExpectDicoms,dicomdir,subject,suff,ses_id,study_identifier,first_image,data_analysis_path,series,series_n,task,addsub,overwrite)
-% v0.2.1 release
+% Most recently updated for v0.2.1 release
 
 % Uses dicm2nii toolbox to import dicom-images to nifti-format
 % Folder structure in BIDS format is produced, for more information see: Gorgolewski, K. J. et al., Sci. Data 3:160044, doi: 10.1038/sdata.2016.44 (2016)
@@ -8,7 +8,7 @@ function out = import2nifti_functional(HowExpectDicoms,dicomdir,subject,suff,ses
 
 % Change log from v0.1:
 % - implemented json-output check
-% - implemented Error-reporting
+% - implemented Warning-reporting
 % - account for nii.gz
 
 %% Comment out if function in use
@@ -40,7 +40,7 @@ elseif strcmp(HowExpectDicoms,'BIDS')
         dicomd = [dicomdir,filesep,subject,filesep,ses_id];
     end
 else
-    out{dum,:} = 'User input to object type ''dicom'' not allowed.\nError #7\nProgram stops.\n';
+    out{dum,:} = 'User input to object type ''dicom'' not allowed.\nWarning #7\nProgram stops.\n';
     return
 end
 
@@ -64,7 +64,7 @@ funcp = [subject_dir,filesep,'func'];
 if isfile([funcp,filesep,prefix,subject,write_ses,'task-',task,'_bold.nii']) || isfile([funcp,filesep,prefix,subject,write_ses,'task-',task,'_bold.nii.gz'])
     fprintf('Found existing nifti-file for this task.\n')
     if isfile([funcp,filesep,prefix,subject,write_ses,'task-',task,'_bold.nii'])
-        out{dum,:} = ('Existing nifti-file is not zipped - not compatible with automated fieldmap routine.\nError #14\n');
+        out{dum,:} = ('Existing nifti-file is not zipped - not compatible with automated fieldmap routine.\nWarning #14\n');
         dum = dum + 1;
     end    
     if strcmp(overwrite,'yes')
@@ -118,7 +118,7 @@ end
     get_file = dir(nii_file);
     
     if length(get_file)>1
-        out{dum,:} = 'Expected one imported nifti file but found more than one.\nError #13.\nProgram stops.\n';
+        out{dum,:} = 'Expected one imported nifti file but found more than one.\nWarning #13.\nProgram stops.\n';
         return
     end
     
@@ -133,7 +133,7 @@ end
     try
         movefile([subject_dir,filesep,'func',filesep,fn(1:ext-1),'.json'],[subject_dir,filesep,'func',filesep,prefix,subject,write_ses,'task-',task,'_bold.json']);
     catch
-        out{dum,:} = 'Nifti-supporting json-file not found.\nSwitch on json-output via dicm2nii.\nError #10\n\n';
+        out{dum,:} = 'Nifti-supporting json-file not found.\nSwitch on json-output via dicm2nii.\nWarning #10\n\n';
         dum = dum + 1;
     end
         
@@ -149,6 +149,6 @@ end
     end
     
 % catch
-%     out{dum,:} = 'Scans for this task were not found for this subject/session.\nError #8\n';
+%     out{dum,:} = 'Scans for this task were not found for this subject/session.\nWarning #8\n';
 %     return
 % end

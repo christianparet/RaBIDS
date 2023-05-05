@@ -1,14 +1,14 @@
 [![DOI](https://zenodo.org/badge/246063967.svg)](https://zenodo.org/badge/latestdoi/246063967)
 # RaBIDS
-Rapid, automated conversion to Brain Imaging Data Structure (BIDS) 
+Rapid and automated conversion of neuroimaging data to BIDS 
 
 ## Welcome!
 Thank you for looking at this code repository! I hope you find the content helpful.
 
 ## Description
-raBIDS is Matlab-based software supporting the import of human neuroimaging data to the BIDS format (visit https://bids.neuroimaging.io/ for information on BIDS). The 'Import' part of raBIDS is a wrapper built around the dicm2nii toolbox (https://github.com/xiangruili/dicm2nii). The 'Create-SOTs' part provides an automated routine to read stimulus onset times from an experiment logfile. The vision of this project is to provide a tool to researchers without programming background who are used to work in a Windows environment and with MS Office applications. In its current version (v0.X), RaBIDS uses Excel-2010-based tables to load experiment information that is used to assign scans to tasks.
-There are several limitations and software requirements that may prevent users from using the current beta version v0.2.X. Please consult the manual for more information.
-This project is currently under development. Before using raBIDS please consult the manual. A tutorial is provided. Data for this tutorial can be requested from the author.
+RaBIDS is Matlab-based software supporting the import of human neuroimaging data to the BIDS format (visit https://bids.neuroimaging.io/ for information on BIDS). The 'Import' part of RaBIDS is a wrapper built around the dicm2nii toolbox (https://github.com/xiangruili/dicm2nii). The 'Create-SOTs' part provides an automated routine to read stimulus onset times from an experiment logfile. The vision of this project is to provide a tool to researchers without programming background who are used to work in a Windows environment and with MS Office applications. In its current version (v0.X), RaBIDS uses Excel-2010-based tables to load experiment information that is used to assign scans to tasks.
+There are several limitations and software requirements that may prevent users from using the current beta version. Please consult the manual for more information.
+This project is currently under development. Before using RaBIDS please consult the manual. A tutorial is provided. Data for this tutorial can be requested from the author.
 Make sure to use the latest release.
 
 ## On a personal note

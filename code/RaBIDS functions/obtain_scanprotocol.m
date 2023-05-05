@@ -1,5 +1,5 @@
 function [out,scanprotocol] = obtain_scanprotocol(HowExpectDicoms,dicomdir,subject,suff,ses_id,study_identifier,data_analysis_path,max_series,addsub,write)
-% v0.2 release
+% Most recently updated for v0.2 release
 
 % Read headers of MRI images and obtain meta-data information on task and series
 
@@ -37,7 +37,7 @@ elseif strcmp(HowExpectDicoms,'BIDS')
         dicomd = [dicomdir,filesep,subject,filesep,ses_id];
     end
 else
-    out{dum,:} = 'User input to object type ''dicom'' not allowed.\nError #7\nProgram stops.\n';
+    out{dum,:} = 'User input to object type ''dicom'' not allowed.\nWarning #7\nProgram stops.\n';
     return
 end
 
@@ -63,7 +63,7 @@ all_files=dir(strcat(dicomd,filesep,subject,suff,'.MR*.IMA'));
 disp('Reading data...');
 
 if isempty(all_files)
-    out{dum,1} = 'No data found for this session\n.Error #12\n\n';   
+    out{dum,1} = 'No data found for this session\n.Warning #12\n\n';   
     return
 end
 
@@ -79,7 +79,7 @@ for i=1:length(ind_files)
     try
         hdr = dicominfo(fullfile(dicomd,ind_files{i}(1).name));
         if ~strcmp(hdr.PatientID,subject)
-            out{dum,1} = ['MRI-series #',num2str(i),': meta-data ID ''',hdr.PatientID,''' and ID assigned in datasheet ''',subject,''' are different.\nError #1.\n\n'];
+            out{dum,1} = ['MRI-series #',num2str(i),': meta-data ID ''',hdr.PatientID,''' and ID assigned in datasheet ''',subject,''' are different.\nWarning #1.\n\n'];
             dum=dum+1;
         end
         names(i,1) = {hdr.ProtocolName};
@@ -100,7 +100,7 @@ Z = struct('name',D,'freq',num2cell(Y(:)));
 for i=1:unique_seq
     if ~strcmp(Z(i).name,'No such series')
         if Z(i).freq>1
-            out{dum,1} = ['Found ',num2str(Z(i).freq),' MR series with name ',Z(i).name,'.\nFor BOLD series with identical names: ranges defined by MinImages-MaxImages must not overlap.\nError#11\n\n'];
+            out{dum,1} = ['Found ',num2str(Z(i).freq),' MR series with name ',Z(i).name,'.\nFor BOLD series with identical names: ranges defined by MinImages-MaxImages must not overlap.\nWarning#11\n\n'];
             dum=dum+1;
         end
     end
@@ -131,7 +131,7 @@ catch
         out{dum,1} = 'Found scanprotocol, will use that one.\n\n ';
         return
     catch
-        out{dum,1} = 'No scan protocol found.\nError #2.\n\n';
+        out{dum,1} = 'No scan protocol found.\nWarning #2.\n\n';
         return
     end
 end

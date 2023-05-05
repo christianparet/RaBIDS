@@ -1,5 +1,5 @@
 function out = import2nifti_fieldmap(HowExpectDicoms,dicomdir,subject,suff,ses_id,study_identifier,data_analysis_path,series,series_n,TE1,TE2,IntendedFor,addsub,overwrite)
-% v0.2.2 release
+% Most recently updated for  v0.2.2 release
 
 % Uses dicm2nii toolbox to import dicom-images to nifti-format
 % Folder structure in BIDS format is produced, for more information see: Gorgolewski, K. J. et al., Sci. Data 3:160044, doi: 10.1038/sdata.2016.44 (2016)
@@ -8,7 +8,7 @@ function out = import2nifti_fieldmap(HowExpectDicoms,dicomdir,subject,suff,ses_i
 % with output of one phase-difference image and two magnitude images. The
 % header of the phase-difference image lacks information for TE2.
 % Therefore, TE information needs to be entered manually to the datasheet
-% file to be added to the json metadata-file. Without adding TE information to
+% file. RaBIDS will add this information to the json metadata-file. Without adding TE information to
 % the json-file, the BIDS validator will return an error message for the
 % phase-difference map.
 
@@ -97,7 +97,7 @@ try
     get_file = dir(nii_file);
     
     if length(get_file)>1
-        out{dum,:} = 'Expected one imported nifti file but found more than one.\nError #13.\nProgram stops.\n';
+        out{dum,:} = 'Expected one imported nifti file but found more than one.\nWarning #13.\nProgram stops.\n';
         return
     end
     
@@ -107,7 +107,7 @@ try
         if TE1>0 && TE2>0
             out{dum,:} = 'Phase difference-image found. TE specified.\n';
         else
-            out{dum,:} = 'Phase difference-image found. Lacking TE information.\nError #11.\n';
+            out{dum,:} = 'Phase difference-image found. Lacking TE information.\nWarning #11.\n';
         end
         dum = dum + 1;
     else
@@ -155,7 +155,7 @@ try
                         out{dum,:} = ['Fieldmap intended for task ',IntendedFor{1,i},'.\n'];
                     else
                         if i == 1
-                            out{dum,:} = 'No TaskName assigned to fieldmap phasediff.\nError #12\n';
+                            out{dum,:} = 'No TaskName assigned to fieldmap phasediff.\nWarning #12\n';
                         end
                     end
                     dum = dum + 1;
@@ -164,7 +164,7 @@ try
                 jsonf_newname = [prefix,subject,write_ses,'phasediff.json'];
                 saveJSONfile(jsonf,fullfile(subject_dir,filesep,'fmap',filesep,jsonf_newname)) % Lior Kirsch (2020). Structure to JSON (https://www.mathworks.com/matlabcentral/fileexchange/50965-structure-to-json), MATLAB Central File Exchange. Retrieved February 27, 2020.
             catch
-                out{dum,:} = 'json file for phasedifference map not found. Consider checking dicm2nii json-output options.\nError #10\n\n';
+                out{dum,:} = 'json file for phasedifference map not found. Consider checking dicm2nii json-output options.\nWarning #10\n\n';
                 dum = dum + 1;
             end
 
@@ -192,6 +192,6 @@ try
     out{dum,:} = 'Dicom import successful!\nTo warrant BIDS validity: consider to cleanup json-sidecar file (see RaBIDS\auxiliary tools).\n\n';
     
 catch
-    out{dum,:} = 'Scans for this task were not found for this subject/session.\nError #8\n';
+    out{dum,:} = 'Scans for this task were not found for this subject/session.\nWarning #8\n';
     return
 end
