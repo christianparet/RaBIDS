@@ -4,6 +4,7 @@
 %Changelog to v0.2.3 (Miroslava Jindrova, ZI Mannheim, 2024)
 % - adding task order specification to be able to distinguish between tasks
 % with the same number of volumes and sequence name
+%changed lines: [51, 103:104, 193:205, 213, 225]
 
 % Change log 
 
@@ -189,19 +190,22 @@ for i = 1:length(subj_list)
                 break
             end
 
-            Torder=[]; %create a column with the order of repeating tasks
-            for o = 1:length(scanprotocol.name) 
-                uni_vols=unique(scanprotocol.vols); %find out if the number of volumes is identical
-                dup_vols=uni_vols(hist(scanprotocol.vols,uni_vols)>1);
-                vol_ident=ismember(scanprotocol.vols,dup_vols);
-                if sum(count(scanprotocol.name,scanprotocol.name(o)))==1 && ~vol_ident(o)
-                    Torder(o)=0; %first set zeros to non-repeating scans
-                elseif ~isempty(Torder)
-                    Torder(o)=Torder(o-1)+1;
+            % identify repeating sequences
+            Torder=[]; 
+            if ~contains(scanprotocol.name,'no scan found')
+                for o = 1:length(scanprotocol.name) 
+                    uni_vols=unique(scanprotocol.vols); %find out if the number of volumes is identical
+                    dup_vols=uni_vols(hist(scanprotocol.vols,uni_vols)>1);
+                    vol_ident=ismember(scanprotocol.vols,dup_vols);
+                    if sum(count(scanprotocol.name,scanprotocol.name(o)))==1 && ~vol_ident(o)
+                        Torder(o)=0; %first set zeros to non-repeating scans
+                    elseif ~isempty(Torder)
+                        Torder(o)=Torder(o-1)+1;
+                    end
                 end
+                Torder(Torder==0)=1; %set zeros to ones
+                scanprotocol=[scanprotocol,array2table(Torder.','VariableNames',{'order'})]; %add a column with order of repeating tasks
             end
-            Torder(Torder==0)=1; %set zeros to ones
-            scanprotocol=[scanprotocol,array2table(Torder.','VariableNames',{'order'})];
            
             for k = 1:length(tasks)
                 task = tasks{k};
