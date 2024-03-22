@@ -4,10 +4,8 @@
 %Changelog to v0.2.3 (Miroslava Jindrova, ZI Mannheim, 2024)
 % - adding task order specification to be able to distinguish between tasks
 % with the same number of volumes and sequence name
-%changed lines: [51, 103:104, 193:205, 213, 225]
 
 % Change log 
-
 % - opts input to readtable function added to preserve character variable type when reading data from datasheet (Miroslava Jindrova, 2022/03/04)
 
 % v0.2.2 
@@ -94,7 +92,6 @@ for i = 1:length(dum)
 end
 
 % Number of runs/MR series per session; note that program will check in each session. 
-% Number of images in each scan series CAUTION: intervals of min-max scans per series must not overlap.
 dum = find(contains(data.Properties.RowNames,'MRI series'));
 for i = 1:length(dum)
     tasks(i) = data{dum(i),userInputcol};
