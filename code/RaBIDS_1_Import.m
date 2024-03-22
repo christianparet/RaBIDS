@@ -194,7 +194,7 @@ for i = 1:length(subj_list)
                     uni_vols=unique(scanprotocol.vols); %find out if the number of volumes is identical
                     dup_vols=uni_vols(hist(scanprotocol.vols,uni_vols)>1);
                     vol_ident=ismember(scanprotocol.vols,dup_vols);
-                    if sum(count(scanprotocol.name,scanprotocol.name(o)))==1 && ~vol_ident(o)
+                    if ~vol_ident(o)
                         Torder(o)=0; %first set zeros to non-repeating scans
                     elseif ~isempty(Torder)
                         Torder(o)=Torder(o-1)+1;
