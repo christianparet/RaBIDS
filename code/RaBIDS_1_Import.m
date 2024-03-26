@@ -1,8 +1,11 @@
 %% RaBIDS - Rapid preparation of BIDS
 % Most recently updated for v0.2.2 release
 
-% Change log 
+%Changelog to v0.2.3 (Miroslava Jindrova, ZI Mannheim, 2024)
+% - adding task order specification to be able to distinguish between tasks
+% with the same number of volumes and sequence name
 
+% Change log 
 % - opts input to readtable function added to preserve character variable type when reading data from datasheet (Miroslava Jindrova, 2022/03/04)
 
 % v0.2.2 
@@ -43,6 +46,7 @@ descriptcol = find(strcmp(data.Properties.VariableNames,'Description'));
 userInputcol = find(strcmp(data.Properties.VariableNames,'UserInput'));
 minImagescol = find(strcmp(data.Properties.VariableNames,'MinImages'));
 maxImagescol = find(strcmp(data.Properties.VariableNames,'MaxImages'));
+taskOrdercol = find(strcmp(data.Properties.VariableNames,'TaskOrder'));
 
 AddPathline = find(contains(data.Properties.RowNames,'add path'));
 for i = 1:length(AddPathline)
@@ -88,13 +92,14 @@ for i = 1:length(dum)
 end
 
 % Number of runs/MR series per session; note that program will check in each session. 
-% Number of images in each scan series CAUTION: intervals of min-max scans per series must not overlap.
 dum = find(contains(data.Properties.RowNames,'MRI series'));
 for i = 1:length(dum)
     tasks(i) = data{dum(i),userInputcol};
     metadata_series{i} = char(data{dum(i)+1,userInputcol}{:}); % meta-data info. Use char that in case suffix-cell is empty the routine works with an empty char
     n_series(i,:) = data{dum(i),[minImagescol,maxImagescol]};
-    
+    task_order(i) = data{dum(i)+1,taskOrdercol};
+    task_order(isnan(task_order))=1; %set NaNs to 1
+
     if contains(tasks(i),'fieldmap') && contains(tasks(i),'phasediff') 
         
         % Look out for TaskName of corresponding EPI-scan
@@ -182,12 +187,30 @@ for i = 1:length(subj_list)
                 break
             end
 
+            % identify repeating sequences
+            Torder=[]; 
+            if ~contains(scanprotocol.name,'no scan found')
+                for o = 1:length(scanprotocol.name) 
+                    uni_vols=unique(scanprotocol.vols); %find out if the number of volumes is identical
+                    dup_vols=uni_vols(hist(scanprotocol.vols,uni_vols)>1);
+                    vol_ident=ismember(scanprotocol.vols,dup_vols);
+                    if ~vol_ident(o)
+                        Torder(o)=0; %first set zeros to non-repeating scans
+                    elseif ~isempty(Torder)
+                        Torder(o)=Torder(o-1)+1;
+                    end
+                end
+                Torder(Torder==0)=1; %set zeros to ones
+                scanprotocol=[scanprotocol,array2table(Torder.','VariableNames',{'order'})]; %add a column with order of repeating tasks
+            end
+           
             for k = 1:length(tasks)
                 task = tasks{k};
                 fprintf(['--------------- Task: ',task,' ---------------\n\n']);
                 n_min = n_series(k,1);
                 n_max = n_series(k,2);
                 metadata = metadata_series{k};
+                order = task_order(k);
                 if contains(task,'fieldmap')
                     fmapTE1 = fmapTE_series(k,1);
                     fmapTE2 = fmapTE_series(k,2);
@@ -199,7 +222,7 @@ for i = 1:length(subj_list)
                 valid_series = 'false';
                 for l = 1:nr
                     if strcmp(scanprotocol.name{l},metadata)
-                        if (scanprotocol.vols(l)>=n_min && scanprotocol.vols(l)<=n_max) || (scanprotocol.vols(l)==n_min && isnan(n_max))
+                        if (scanprotocol.vols(l)>=n_min && scanprotocol.vols(l)<=n_max && scanprotocol.order(l)==order) || (scanprotocol.vols(l)==n_min && isnan(n_max) && scanprotocol.order(l)==order)
                             useseries = scanprotocol.series(l);
                             valid_series = 'true';
                             break
