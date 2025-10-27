@@ -3,7 +3,7 @@ function out = create_sots(subject,task,data_analysis_path,source_data_path,ses_
 % Most recently updated for v0.3 release
 
 % 2021/08/09: Import options for readtable function revisited to work in a more generic way
-% 2022/03 & 2023/04: Import options for readtable function revisited to work in a more generic way: Mirus Jindrová added opts definitions
+% 2022/03 & 2023/04: Import options for readtable function revisited to work in a more generic way: Mirus Jindrov� added opts definitions
 % 2023/04: Option to split task condition in early and late events. If selected, SOTs-files have two stimulus onset functions.
 
 %% Comment out if function in use
@@ -80,7 +80,7 @@ try
         if ~isfolder(logdir)
             logdir = [source_data_path,filesep,subject];
             if ~isfolder(logdir)
-                out{dum,:} = 'Logfile directory not found.\Warning #16\nContinue with next session.\n';
+                out{dum,:} = 'Logfile directory not found.\nWarning #16\nContinue with next session.\n';
                 return
             end
         end
