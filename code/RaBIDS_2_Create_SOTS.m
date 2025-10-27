@@ -46,7 +46,7 @@ for i = 1:length(dum)
     subj_list(i).name = data{dum(i),userInputcol};
 end
 
-addsubline = find(strcmp(data.Properties.RowNames,'add prefix')); % if subject code does not begin with 'sub-' this needs to be prepended for BIDS compatibility
+addsubline = find(strcmp(data.Properties.RowNames,'add sub prefix')); % if subject code does not begin with 'sub-' this needs to be prepended for BIDS compatibility
 addsub = data{addsubline,userInputcol}{:};
 if contains(addsub,'y')
     prefix = 'sub-';
