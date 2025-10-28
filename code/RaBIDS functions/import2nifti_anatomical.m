@@ -1,4 +1,4 @@
-function out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subject,suff,ses_id,study_identifier,data_analysis_path,series_counter,series_name,addsub,addses,overwrite,dcm2niix_exe_path)
+function out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subject,suff,ses_id,study_identifier,data_analysis_path,series_counter,series_name,suffix,suffix_nr,addsub,addses,overwrite,dcm2niix_exe_path)
 
 % Most recently updated for v0.4 release
 
@@ -18,6 +18,9 @@ function out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subject,suff,ses
 % - json anonymisation implemented
 % - use jsonencode to write json file
 % - % - a bunch of different export format types of dcms are incorporated (i.e. Siemens_MA, Siemens_TB, Siemens_FR), corresponding to individual idiosyncracies of dcm export parameters at different MR centers.
+
+% Change in v0.4
+% - option to input suffix and suffix number which can be used to identify dicom output in case that more than one anatomical outputs are available
 
 %% Comment out if function in use
 % clear
@@ -109,12 +112,19 @@ end
 
 try
 
+    if any(suffix)
+        addsuff = [suffix,'_',suffix_nr];
+    else
+        addsuff = num2str(series_counter);
+    end
+
+
     if strcmp(HowExpectDicoms,'Siemens_MA')
-        filter_mprage = [series_name,'_',num2str(series_counter),'_MR'];
-    elseif strcmp(HowExpectDicoms,'Siemens_TB')
-        filter_mprage = [sprintf('%02d',series_counter),'_',series_name];
-    elseif strcmp(HowExpectDicoms,'Siemens_FR')
-        filter_mprage = [sprintf('%d',series_counter),'_',lower(series_name)];
+        filter_mprage = [series_name,'_',addsuff,'_MR'];
+    % elseif strcmp(HowExpectDicoms,'Siemens_TB')
+    %     filter_mprage = [sprintf('%02d',series_counter),'_',series_name];
+    % elseif strcmp(HowExpectDicoms,'Siemens_FR')
+    %     filter_mprage = [sprintf('%d',series_counter),'_',lower(series_name)];
     else
         filter_mprage = [subject,suff,'.MR.',study_identifier,'.',sprintf('%04d',series_counter),'.*'];
     end
