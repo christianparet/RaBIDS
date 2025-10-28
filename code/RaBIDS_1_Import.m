@@ -34,10 +34,10 @@ clc
 fprintf('RaBIDS ---------- Rapid preparation of BIDS ------- is running!\nVersion 0.4\n');
 
 %% Read data from datasheet
-opts = detectImportOptions('datasheet_MA.xlsx','NumHeaderLines',0);
+opts = detectImportOptions('datasheet.xlsx','NumHeaderLines',0);
 opts.PreserveVariableNames = 1;
 opts = setvartype(opts,3,'char');
-data = readtable('datasheet_MA.xlsx',opts,'ReadRowNames',true);
+data = readtable('datasheet.xlsx',opts,'ReadRowNames',true);
 data_dir =  'dataset';
 
 max_series = 70; % N needs to be equal or larger maximum number of scan series in a subject; this could be improved in future versions
@@ -211,6 +211,41 @@ for i = 1:length(dum)
             fprintf('Functional: definition of B0FieldSource lacking in datasheet.\n');
             B0_sourceID{i} = '';
         end
+
+    elseif contains(tasks(i),'anat')
+
+        % Optional: suffix in [brackets]
+        getAnatSuffix = findstr(tasks{i},'[');        
+        if ~isempty(getAnatSuffix)
+            getStop = findstr(tasks{i},']');
+            
+            % Sanity check
+            if length(getAnatSuffix)~=length(getStop)
+                fprintf('Anatomical: wrong usage of square brackets in datasheet.\nProgram stops.\n');
+                return
+            end
+
+            anat_suffix{i} = tasks{i}(getAnatSuffix+1:getStop-1);
+
+            getAnatSuffixNr = findstr(tasks{i},'(');
+            if ~isempty(getAnatSuffixNr)
+                getStop = findstr(tasks{i},')');
+
+                % Sanity check
+                if length(getAnatSuffixNr)~=length(getStop)
+                    fprintf('Anatomical: where suffix is defined in [brackets], scan nr. must be given in (brackets).\nProgram stops.\n');
+                    return
+                end
+
+                anat_suffix_nr{i} = tasks{i}(getAnatSuffixNr+1:getStop-1);
+            else
+                fprintf('Anatomical: where suffix is defined in [brackets], scan nr. must be given in (brackets).\nProgram stops.\n');
+                return;
+            end
+        else
+            anat_suffix{i} = '';
+            anat_suffix_nr{i} = '';
+        end
     end
 end
 
@@ -308,8 +343,8 @@ for i = 1:length(subj_list)
                 if strcmp(valid_series,'false')
                     fprintf(['No series for task ',task,' with number of volumes MinImages ',num2str(n_min),'-MaxImages ',num2str(n_max),' found.\nWarning #8.\n\n'])
                 else                    
-                    if strcmp(task,'anat')
-                        out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,data_analysis_path,useseries,scanprotocol.name{useseries},addsub,addses,overwrite,dcm2niix_exe_path);
+                    if contains(task,'anat')
+                        out = import2nifti_anatomical(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,data_analysis_path,useseries,scanprotocol.name{useseries},anat_suffix{k},anat_suffix_nr{k},addsub,addses,overwrite,dcm2niix_exe_path);
                     elseif contains(task,'fieldmap')
                         out = import2nifti_fieldmap(HowExpectDicoms,dicomdir,subj_list(i).name{1},suff{j},ses_id{j},general_suffix,data_analysis_path,useseries,scanprotocol.name{useseries},fmapIntendedFor,B0FieldID,addsub,addses,overwrite,dcm2niix_exe_path);
                     elseif contains(task,'dwi')
