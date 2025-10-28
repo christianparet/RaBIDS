@@ -49,7 +49,10 @@ elseif strcmp(HowExpectDicoms,'BIDS')
         dicomd = [dicomdir,filesep,subject,filesep,ses_id];
     end
 elseif strcmp(HowExpectDicoms,'Siemens_MA') || strcmp(HowExpectDicoms,'Siemens_TB')
-    dicomd_temp = fullfile(dicomdir,[subject,'-',ses_id]);
+    % dicomd_temp = fullfile(dicomdir,[subject,'-',ses_id]); % Removed for
+    % this project, because there is only one session (i.e., no session
+    % subdirectory)
+    dicomd_temp = fullfile(dicomdir,subject);
     dumdir1 = dir(dicomd_temp);
     dumdir2 = dir(fullfile(dicomd_temp,dumdir1(3).name));
     dicomd = fullfile(dicomd_temp,dumdir1(3).name,dumdir2(3).name);
