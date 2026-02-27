@@ -3,19 +3,19 @@ function out = create_sots(subject,task,data_analysis_path,source_data_path,ses_
 % Most recently updated for v0.3 release
 
 % 2021/08/09: Import options for readtable function revisited to work in a more generic way
-% 2022/03 & 2023/04: Import options for readtable function revisited to work in a more generic way: Mirus Jindrov� added opts definitions
+% 2022/03 & 2023/04: Import options for readtable function revisited to work in a more generic way: Mirus Jindrov added opts definitions
 % 2023/04: Option to split task condition in early and late events. If selected, SOTs-files have two stimulus onset functions.
 
 %% Comment out if function in use
 % clear
 % clc
-% condfile = 'E:\mytrainingdata\your project directory\dataset\code\conditions_faces.xlsx';
-% data_analysis_path = 'E:\mytrainingdata\your project directory';
-% source_data_path = 'E:\mytrainingdata\data exchange server\RABIDS-example\sourcedata';
-% subject = 'RaBIDS01';
-% ses_id = 'ses-01';
+% condfile = 'R:\dataset\code\conditions_reappraisal_run-1.xlsx';
+% data_analysis_path = 'R:\';
+% source_data_path = 'R:\sourcedata';
+% subject = 'B03P01';
+% ses_id = 'none';
 % addsub = 'y';
-% task = 'faces';
+% task = 'reappraisal_run-1';
 % firstpulse = 5;
 % overwrite = 'y';
 %%
@@ -30,8 +30,8 @@ end
 try
     %% Define conditions
     opts = detectImportOptions(condfile,'DataRange','B2','RowNamesRange','A2','VariableNamesRange','B1');
-    opts = setvartype(opts, ["Name","OnsetID","OffsetID","ContrastType","ContrastPlus1","ContrastMinus1"],"string");
-    opts = setvartype(opts, ["Duration","SplitCondition"],"double");
+    opts = setvartype(opts, ["Name","OnsetID","OffsetID"],"string");
+    opts = setvartype(opts, "Duration","double");
     conddata = readtable(condfile,opts);
     
     Namecol = find(strcmp(conddata.Properties.VariableNames,'Name'));
